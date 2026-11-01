@@ -1,6 +1,26 @@
 <?php
 declare(strict_types=1);
 
+function catalogImageSelection(): array
+{
+    static $selection = null;
+    if ($selection === null) {
+        $override = getenv('PARFUM_IMAGE_SELECTION');
+        $json = $override !== false ? $override : <<<'PHOTO_SELECTION'
+__PHOTO_SELECTION__
+PHOTO_SELECTION;
+        $selection = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        if (!is_array($selection)) { throw new RuntimeException('Invalid photo selection'); }
+    }
+    return $selection;
+}
+
+function productImageLabel(?int $productId, string $url): string
+{
+    $selection = catalogImageSelection()[(string) $productId] ?? [];
+    return basename($url) === ($selection['bottle_box'] ?? null) ? 'Флакон и коробка' : 'Флакон';
+}
+
 function imageKey(string $value): string
 {
     return trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($value)), '-');
@@ -15,12 +35,23 @@ function productImages(string $sku, ?int $productId = null): array
         $folder = $base . '/' . $productId;
         if (!is_link($base) && !is_link($folder) && is_file($folder . '/.complete')) {
             $photos = [];
-            foreach (glob($folder . '/*.jpg') ?: [] as $path) {
-                if (is_link($path) || !preg_match('/^[1-9][0-9]*-[a-f0-9]{16}\.jpg$/D', basename($path))) { continue; }
+            $selection = catalogImageSelection()[(string) $productId] ?? [];
+            foreach (['bottle', 'bottle_box'] as $role) {
+                $name = $selection[$role] ?? null;
+                if (!is_string($name) || !preg_match('/^[1-9][0-9]*-[a-f0-9]{16}\.jpg$/D', $name)) {
+                    if ($role === 'bottle') { return []; }
+                    continue;
+                }
+                $path = $folder . '/' . $name;
+                if (!is_file($path) || is_link($path)) {
+                    if ($role === 'bottle') { return []; }
+                    continue;
+                }
                 $info = @getimagesize($path);
-                if (($info['mime'] ?? '') === 'image/jpeg') { $photos[] = '/' . $pictDirectory . '/' . $productId . '/' . basename($path); }
+                if (($info['mime'] ?? '') === 'image/jpeg') {
+                    $photos[] = '/' . $pictDirectory . '/' . $productId . '/' . $name;
+                } elseif ($role === 'bottle') { return []; }
             }
-            natsort($photos);
             if ($photos) { return array_values($photos); }
         }
     }
@@ -53,5 +84,5 @@ function productImages(string $sku, ?int $productId = null): array
         }
     } catch (UnexpectedValueException $error) { return []; }
     natsort($found);
-    return array_values(array_unique($found));
+    return array_slice(array_values(array_unique($found)), 0, 2);
 }

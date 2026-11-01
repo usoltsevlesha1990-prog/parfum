@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import html
+import hashlib
+import json
 import base64
 import tempfile
 import os
@@ -31,7 +33,13 @@ class SinglePhpTests(unittest.TestCase):
         (Path(cls.images.name)/'louis-vuitton-ombre-nomade-parfum.png').write_bytes(png)
         (Path(cls.images.name)/'louis-vuitton-imagination.png').write_bytes(png)
         (folder/'link.png').symlink_to('/etc/passwd')
-        server_env=dict(os.environ,PARFUM_IMAGE_DIRECTORY=Path(cls.images.name).name,PARFUM_PICT_DIRECTORY=Path(cls.pict.name).name)
+        fixture_products=json.loads((ROOT/'tests/fixtures/catalog.json').read_text())['products']
+        cls.nomade_id=str(next(p['id'] for p in fixture_products if p['sku']=='louis-vuitton-ombre-nomade'))
+        cls.imagination_id=str(next(p['id'] for p in fixture_products if p['sku']=='louis-vuitton-imagination'))
+        photo_hash=hashlib.sha256((ROOT/'tests/fixtures/pixel.jpg').read_bytes()).hexdigest()[:16]
+        cls.photo_hash=photo_hash
+        selection={cls.nomade_id:{'bottle':'1-'+photo_hash+'.jpg','bottle_box':None},cls.imagination_id:{'bottle':'3-'+photo_hash+'.jpg','bottle_box':'2-'+photo_hash+'.jpg'}}
+        server_env=dict(os.environ,PARFUM_IMAGE_DIRECTORY=Path(cls.images.name).name,PARFUM_PICT_DIRECTORY=Path(cls.pict.name).name,PARFUM_IMAGE_SELECTION=json.dumps(selection))
         cls.server=subprocess.Popen([os.environ.get('PHP_BIN','php'),'-S',f'127.0.0.1:{port}','-t',str(ROOT/'review-site'),str(ROOT/'tests/Feature/router.php')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=server_env)
         try:
             for _ in range(40):
@@ -91,6 +99,25 @@ class SinglePhpTests(unittest.TestCase):
             self.assertEqual(body.count('<img '),1)
         finally:
             marker.unlink(missing_ok=True);photo.unlink();folder.rmdir()
+
+    def test_two_photo_roles_and_main_thumbnail(self):
+        folder=Path(self.pict.name)/self.imagination_id;folder.mkdir()
+        data=(ROOT/'tests/fixtures/pixel.jpg').read_bytes()
+        for number in [1,2,3]: (folder/(str(number)+'-'+self.photo_hash+'.jpg')).write_bytes(data)
+        (folder/'.complete').write_text('complete')
+        try:
+            _,body=self.get('/louis-vuitton/imagination.html')
+            images=re.findall(r'<img src="([^"]+)"',body)
+            expected=['/'+Path(self.pict.name).name+'/'+self.imagination_id+'/'+str(n)+'-'+self.photo_hash+'.jpg' for n in [3,2]]
+            self.assertEqual(images,expected)
+            self.assertIn('Флакон · 1 / 2',body)
+            self.assertIn('Флакон и коробка · 2 / 2',body)
+            _,catalog=self.get('/')
+            self.assertIn('src="'+expected[0]+'"',catalog)
+            self.assertNotIn('src="'+expected[1]+'"',catalog)
+        finally:
+            for file in folder.iterdir():file.unlink()
+            folder.rmdir()
 
     def test_product_images(self):
         status,body=self.get('index.php?sku=louis-vuitton-ombre-nomade')

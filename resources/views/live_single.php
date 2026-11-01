@@ -28,7 +28,7 @@
 <article class="detail">
 <div class="gallery" aria-label="Фотографии аромата">
 <?php if ($images): ?>
-<?php foreach ($images as $number=>$url): ?><figure><a href="<?= e($url) ?>"><img src="<?= e($url) ?>" alt="<?= e($b['name'].' '.$product['name'].' — фото '.($number+1)) ?>" width="640" height="640" <?= $number===0 ? 'fetchpriority="high"' : 'loading="lazy"' ?>></a><figcaption><?= $number+1 ?> / <?= count($images) ?><?php if(count($images)>1): ?> · Листайте фотографии<?php endif; ?></figcaption></figure><?php endforeach; ?>
+<?php foreach ($images as $number=>$url): ?><figure><a href="<?= e($url) ?>"><img src="<?= e($url) ?>" alt="<?= e($b['name'].' '.$product['name'].' — '.productImageLabel((int)$product['id'],$url)) ?>" width="640" height="640" <?= $number===0 ? 'fetchpriority="high"' : 'loading="lazy"' ?>></a><figcaption><?= e(productImageLabel((int)$product['id'],$url)) ?> · <?= $number+1 ?> / <?= count($images) ?><?php if(count($images)>1): ?> · Листайте фотографии<?php endif; ?></figcaption></figure><?php endforeach; ?>
 <?php else: ?><figure class="no-photo">Фотографии для этого аромата пока не найдены.</figure><?php endif; ?>
 </div>
 <div>
