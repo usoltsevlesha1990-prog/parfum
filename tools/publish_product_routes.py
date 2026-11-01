@@ -79,6 +79,7 @@ RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^([a-z0-9-]+)/([a-z0-9-]+)\.html$ /index.php [END,QSA]
+RewriteRule ^(about|delivery|payment|contacts)\.html$ /index.php [END,QSA]
 </IfModule>
 # END PARFUM PLACE PRODUCT URLS
 """

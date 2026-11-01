@@ -50,7 +50,7 @@ class SinglePhpTests(unittest.TestCase):
         with r:return r.status,r.read().decode()
     def test_catalog(self):
         status,body=self.get();self.assertEqual(status,200);self.assertEqual(body.count('data-product-link'),12)
-        self.assertNotIn('<style',body);self.assertNotIn('<script',body);self.assertNotIn('stylesheet',body)
+        self.assertIn('--accent:#7a3045',body);self.assertNotIn('<script',body);self.assertNotIn('<form',body);self.assertNotIn('name="q"',body)
         self.assertEqual(self.get('index.php?page=6')[1].count('data-product-link'),3)
     def test_all_product_links(self):
         found=set()
@@ -142,6 +142,15 @@ class SinglePhpTests(unittest.TestCase):
         self.assertTrue(links)
         self.assertTrue(all(link.startswith('/yves-saint-laurent/') for link in links))
         self.assertEqual(self.get('/unknown-brand/')[0],404)
+
+    def test_static_information_pages(self):
+        for path,title in [('about.html','О нас'),('delivery.html','Доставка'),('payment.html','Оплата'),('contacts.html','Контакты')]:
+            status,body=self.get(path)
+            self.assertEqual(status,200)
+            self.assertIn('<h1>'+title+'</h1>',body)
+            self.assertIn('Информация скоро появится.',body)
+            self.assertNotIn('<form',body)
+        self.assertEqual(self.get('unknown.html')[0],404)
 
     def test_invalid(self):
         for q in ['q[]=x','page=-1','sku[]=x','q=%FF']:

@@ -3,7 +3,8 @@ declare(strict_types=1);
 date_default_timezone_set('Europe/Moscow');
 header('Content-Type: text/html; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
-header("Content-Security-Policy: default-src 'none'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+$styleNonce=base64_encode(random_bytes(16));
+header("Content-Security-Policy: style-src 'nonce-".$styleNonce."'; default-src 'none'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
 header('Referrer-Policy: no-referrer');
 header('Cache-Control: no-store');
 function e($value): string { return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
@@ -71,7 +72,7 @@ final class CatalogRepository
         $total = (int) $count->fetchColumn();
         $pages = max(1, (int) ceil($total / 12));
         $page = min($page, $pages);
-        $sql = 'SELECT p.*,b.name AS brand_name,b.slug AS brand_slug,prices.min_price FROM products p JOIN brands b ON b.id=p.brand_id LEFT JOIN (SELECT product_id,MIN(' . self::PRICE . ') AS min_price FROM product_prices WHERE price>0 AND volume_ml IN (' . $this->volumes . ') GROUP BY product_id) prices ON prices.product_id=p.id' . $filter . ' ORDER BY b.sort_order,p.sort_order,p.id LIMIT 12 OFFSET ' . (($page - 1) * 12);
+        $sql = 'SELECT p.*,b.name AS brand_name,b.slug AS brand_slug,prices.min_price,prices.volumes FROM products p JOIN brands b ON b.id=p.brand_id LEFT JOIN (SELECT product_id,MIN(' . self::PRICE . ') AS min_price,GROUP_CONCAT(volume_ml ORDER BY volume_ml) AS volumes FROM product_prices WHERE price>0 AND volume_ml IN (' . $this->volumes . ') GROUP BY product_id) prices ON prices.product_id=p.id' . $filter . ' ORDER BY b.sort_order,p.sort_order,p.id LIMIT 12 OFFSET ' . (($page - 1) * 12);
         $stmt = $this->db->prepare($sql); $stmt->execute($args);
         return ['items' => $stmt->fetchAll(), 'total' => $total, 'page' => $page, 'pages' => $pages];
     }
@@ -121,6 +122,8 @@ function database(): PDO {
     $pdo->exec('SET SESSION TRANSACTION READ ONLY');
     return $pdo;
 }
+$staticPages=['/about.html'=>'О нас','/delivery.html'=>'Доставка','/payment.html'=>'Оплата','/contacts.html'=>'Контакты'];
+$staticPage=null;
 $currentBrand=null; $message=null; $product=null; $query=''; $brand=''; $page=1; $brands=[]; $prices=[]; $items=[]; $total=0; $pages=1;
 try {
     if (!in_array($_SERVER['REQUEST_METHOD'],['GET','HEAD'],true)) { header('Allow: GET, HEAD'); http_response_code(405); $message='Метод не поддерживается'; }
@@ -132,9 +135,11 @@ try {
         if (strlen($query)>480 || preg_match('//u',$query)!==1 || strlen($brand)>60 || !preg_match('/^[a-zA-Z0-9_-]*$/D',$brand) || strlen($sku)>150 || !preg_match('/^[a-zA-Z0-9_-]*$/D',$sku) || !preg_match('/^[1-9][0-9]{0,5}$/D',$rawPage)) { throw new InvalidArgumentException(); }
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         $route = [];
-        if (!is_string($path) || (!in_array($path, ['/', '/index.php'], true) && !preg_match('~^/([a-z0-9-]+)(?:/([a-z0-9-]+)(?:\.html)?)?/?$~D', $path, $route))) {
+        if (!is_string($path) || (!in_array($path, ['/', '/index.php'], true) && !isset($staticPages[$path]) && !preg_match('~^/([a-z0-9-]+)(?:/([a-z0-9-]+)(?:\.html)?)?/?$~D', $path, $route))) {
             http_response_code(404); $message='Страница не найдена';
         }
+        $staticPage=$staticPages[$path] ?? null;
+        if ($staticPage === null) {
         $repo=new CatalogRepository(database());
         foreach ($repo->brands() as $b) { $brands[$b['id']]=$b; }
         if ($route && !isset($route[2])) { $brand=$route[1]; }
@@ -159,10 +164,11 @@ try {
             $catalog=$repo->search($query,$brand,(int)$rawPage);
             $items=$catalog['items']; $total=$catalog['total']; $page=$catalog['page']; $pages=$catalog['pages'];
         }
+        }
     }
 } catch (InvalidArgumentException $error) { http_response_code(400); $message='Некорректные параметры'; }
 catch (Throwable $error) { http_response_code(503); header('X-Catalog-Error: ' . ($error instanceof PDOException ? 'MYSQL-' . (int) ($error->errorInfo[1] ?? 0) : (str_contains($error->getMessage(), 'Missing database config') ? 'CONFIG-MISSING' : 'CONFIG-ERROR'))); error_log('PARFUM PLACE MySQL request failed: '.get_class($error)); $message='Каталог временно недоступен. Проверьте подключение к MySQL.'; }
-$title=$product ? $brands[$product['brand_id']]['name'].' — '.$product['name'] : ($currentBrand['name'] ?? 'Каталог ароматов');
+$title=$staticPage ?? ($product ? $brands[$product['brand_id']]['name'].' — '.$product['name'] : ($currentBrand['name'] ?? 'Каталог ароматов'));
 if ($_SERVER['REQUEST_METHOD']==='HEAD') { exit; }
 
 
@@ -223,32 +229,71 @@ function productImages(string $sku, ?int $productId = null): array
 
 ?>
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title><?= e($title) ?> — PARFUM PLACE</title><?php if ($product !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e(productUrl($product['sku'],$product['brand_slug'])) ?>"><?php elseif ($currentBrand !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e(linkTo(['brand'=>$brand,'page'=>$page,'q'=>$query])) ?>"><?php endif; ?></head><body>
-<p><a href="/">PARFUM PLACE — все ароматы</a></p>
-<p>Только целые заводские флаконы. Без пробников и отливантов.</p>
-<p>Актуальный каталог из MySQL.</p>
-<?php if ($message !== null): ?><h1><?= e($message) ?></h1>
-<?php elseif ($product !== null): $b = $brands[$product['brand_id']]; ?>
-<p><a href="<?= e(linkTo(['brand'=>$b['slug']])) ?>">← Все ароматы <?= e($b['name']) ?></a></p>
-<h1 data-product-id="<?= (int) $product['id'] ?>"><?= e($b['name']) ?> — <?= e($product['name']) ?></h1>
-<dl><?php foreach (['gender'=>'Для кого','fragrance_group'=>'Группа ароматов','release_year'=>'Год выпуска'] as $field=>$label): ?><dt><?= e($label) ?></dt><dd><?= e($product[$field] ?: 'Не указано') ?></dd><?php endforeach; ?></dl>
-<?php $images = productImages($product['sku'], (int) $product['id']); ?>
-<?php if ($images): ?><h2>Фотографии</h2>
-<?php foreach ($images as $number => $url): ?>
-<p><a href="<?= e($url) ?>"><img src="<?= e($url) ?>" alt="<?= e($b['name'] . ' ' . $product['name'] . ' — фото ' . ($number + 1)) ?>" width="320" loading="lazy"></a></p>
-<?php endforeach; ?>
-<?php else: ?><p>Фотографии для этого аромата пока не найдены.</p><?php endif; ?>
-<h2>Описание</h2><p><?= nl2br(e($product['description'] ?: 'Описание в базе отсутствует.')) ?></p>
-<h2>Ноты аромата</h2><dl><?php foreach (['top_notes'=>'Верхние ноты','heart_notes'=>'Ноты сердца','base_notes'=>'Базовые ноты'] as $field=>$label): ?><dt><?= e($label) ?></dt><dd><?= e($product[$field] ?: 'Не указаны') ?></dd><?php endforeach; ?></dl>
-<h2>Объёмы и цены</h2><table><thead><tr><th>Объём</th><th>Цена</th></tr></thead><tbody>
-<?php foreach ($prices[$product['id']] as $price): ?><tr data-variant><td><?= (int) $price['volume_ml'] ?> мл</td><td><?= e(money($price['effective_price'])) ?></td></tr><?php endforeach; ?>
-</tbody></table><p>Наличие требует подтверждения.</p>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow"><meta name="theme-color" content="#7a3045">
+<title><?= e($title) ?> — PARFUM PLACE</title>
+<?php if ($product !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e(productUrl($product['sku'],$product['brand_slug'])) ?>">
+<?php elseif ($currentBrand !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e(linkTo(['brand'=>$brand,'page'=>$page,'q'=>$query])) ?>">
+<?php elseif ($staticPage !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e($path) ?>"><?php endif; ?>
+<style nonce="<?= e($styleNonce) ?>">:root{--accent:#7a3045;--ink:#303033;--muted:#786e73;--line:#eadde2;--wash:#fcf9fa;--serif:Georgia,'Times New Roman',serif}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:#fff;color:var(--ink);font:15px/1.65 Arial,Helvetica,sans-serif}a{color:inherit;text-decoration:none}a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}.wrap{width:min(1160px,calc(100% - 48px));margin:auto}.skip{position:absolute;top:-90px;background:white;padding:10px;z-index:10}.skip:focus{top:5px}.header{height:96px;display:grid;grid-template-columns:70px 1fr 70px;align-items:center;border-bottom:1px solid var(--line)}.wordmark{text-align:center;font:27px var(--serif);letter-spacing:2px;white-space:nowrap}.icon{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.5}.menu{position:relative;z-index:5}.menu summary{cursor:pointer;display:grid;place-items:center;width:44px;height:44px;list-style:none;color:var(--accent)}summary::-webkit-details-marker{display:none}.menu nav{position:absolute;left:0;top:48px;width:225px;padding:12px 20px;background:white;border:1px solid var(--line);box-shadow:0 8px 28px #38202b12}.menu nav a{display:block;padding:12px 0;border-bottom:1px solid var(--line)}.menu nav a:last-child{border:0}.header-contact{justify-self:end;color:var(--accent);font:13px var(--serif);padding:12px 0}.hero{text-align:center;padding:44px 0 30px}.eyebrow{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin:0 0 12px}.hero h1{font:42px/1.2 var(--serif);font-weight:400;margin:0}.hero p:last-child{font:14px var(--serif);color:var(--muted);margin:16px 0 0}.brand-tabs{display:flex;gap:30px;overflow-x:auto;scrollbar-width:thin;border-bottom:1px solid var(--line);padding:0 0 1px;margin:0 0 24px}.brand-tabs a{flex:none;font:15px var(--serif);padding:13px 2px;border-bottom:2px solid transparent;min-height:44px}.brand-tabs [aria-current]{color:var(--accent);border-bottom-color:var(--accent)}.catalog-title{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.catalog-title h2{font:24px var(--serif);font-weight:400;margin:0}.muted{color:var(--muted);font-size:12px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.card{display:flex;min-width:0;border:1px solid #caa7b2;border-radius:2px;padding:12px;flex-direction:column;text-align:center;background:white}.card:hover{border-color:var(--accent)}.card-photo{height:265px;display:grid;place-items:center;margin-bottom:14px;overflow:hidden}.card-photo img{width:100%;height:100%;object-fit:contain}.no-photo{font:13px var(--serif);color:var(--muted)}.card-brand{font-weight:bold;font-size:13px;margin:0 0 1px}.card-name{font:17px/1.4 var(--serif);margin:0;min-height:48px}.card-volume{font-size:12px;color:var(--muted);margin:7px 0 3px}.card-price{font:19px var(--serif);margin:0 0 14px}.outline-button{display:block;border:1px solid var(--accent);color:var(--accent);min-height:44px;padding:10px 8px;font:14px/22px var(--serif);margin-top:auto}.card:hover .outline-button{background:var(--accent);color:white}.pagination{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:28px 0 6px}.pagination a{min-width:44px;min-height:44px;display:grid;place-items:center;border:1px solid var(--line)}.pagination [aria-current]{border-color:var(--accent);background:var(--accent);color:white}.page-caption{text-align:center;color:var(--muted);font-size:12px;margin:8px 0 32px}.footer{border-top:1px solid var(--line);margin-top:36px;padding:26px 0 60px;text-align:center}.footer nav{display:flex;justify-content:center;gap:26px;flex-wrap:wrap;font:14px var(--serif)}.footer nav a{padding:9px 0}.footer small{display:block;margin-top:20px;color:var(--muted);font-size:10px;letter-spacing:1px}.manager{position:fixed;right:20px;bottom:max(20px,env(safe-area-inset-bottom));width:52px;height:52px;border-radius:50%;background:var(--accent);color:white;display:grid;place-items:center;box-shadow:0 3px 13px #7a30452b;z-index:4}.manager .icon{width:27px;height:27px}.breadcrumb{display:inline-block;margin:25px 0;color:var(--accent);font-size:12px;min-height:32px}.detail{display:grid;grid-template-columns:1.1fr 1fr;gap:48px;margin:10px 0 46px}.gallery{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;align-self:start;border:1px solid var(--line);scrollbar-width:thin}.gallery figure{flex:0 0 100%;min-width:0;margin:0;padding:20px;scroll-snap-align:start}.gallery img{width:100%;height:450px;object-fit:contain;display:block}.gallery figcaption{text-align:center;color:var(--muted);font-size:11px;padding-top:12px}.detail h1{font:38px/1.2 var(--serif);font-weight:400;margin:6px 0 18px}.detail .eyebrow{margin-bottom:7px}.facts{display:flex;gap:7px 20px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:24px}.facts div{font-size:12px}.facts dt{color:var(--muted);display:inline}.facts dt:after{content:': '}.facts dd{display:inline;margin:0}.variants{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}.variants th{text-align:left;font-weight:400;color:var(--muted);font-size:12px}.variants th,.variants td{padding:13px 0;border-bottom:1px solid var(--line)}.variants th:last-child,.variants td:last-child{text-align:right}.variants td:last-child{font:24px var(--serif);color:var(--accent)}.description{line-height:1.85;font-size:14px}.detail h2{font:24px var(--serif);font-weight:400;margin:28px 0 12px}.notes div{margin-bottom:16px}.notes dt{font-size:11px;letter-spacing:.5px;color:var(--muted)}.notes dd{margin:3px 0 0;font-size:14px}.info,.error{max-width:650px;margin:55px auto 100px;min-height:40vh}.info h1,.error h1{font:38px var(--serif);font-weight:400}.empty{padding:50px 20px;background:var(--wash);text-align:center}.empty a{text-decoration:underline;color:var(--accent)}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:900px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.card-photo{height:240px}.detail{gap:28px}.gallery img{height:350px}}@media(max-width:600px){.wrap{width:calc(100% - 28px)}.header{height:76px;grid-template-columns:54px 1fr 54px}.wordmark{font-size:20px;letter-spacing:1px}.header-contact{font-size:11px}.hero{padding:28px 0 22px}.hero h1{font-size:30px;line-height:1.2}.hero p:last-child{font-size:12px;margin-top:12px}.brand-tabs{gap:25px;margin-bottom:20px}.brand-tabs a{font-size:14px}.catalog-title h2{font-size:20px}.catalog-title .muted{font-size:11px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{padding:9px 8px}.card-photo{height:200px;margin-bottom:10px}.card-brand{font-size:12px}.card-name{font-size:15px;min-height:44px}.card-price{font-size:18px;margin-bottom:10px}.card-volume{font-size:11px}.outline-button{font-size:13px}.footer nav{gap:8px 22px;font-size:13px}.footer{padding-bottom:90px}.manager{right:16px;bottom:20px}.detail{grid-template-columns:1fr;gap:26px;margin-top:0}.gallery img{height:330px}.gallery figure{padding:16px}.detail h1{font-size:32px}.breadcrumb{margin:18px 0}.facts{margin-bottom:15px}.detail h2{font-size:23px}.info{margin-top:35px}}@media(max-width:360px){.card-photo{height:165px}.card-name{font-size:14px}.wordmark{font-size:18px}.hero h1{font-size:27px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Перейти к содержимому</a>
+<header class="header wrap">
+<details class="menu"><summary aria-label="Открыть меню"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></summary>
+<nav aria-label="Основное меню"><a href="/">Коллекция</a><?php foreach ($staticPages as $url=>$label): ?><a href="<?= e($url) ?>"><?= e($label) ?></a><?php endforeach; ?></nav></details>
+<a class="wordmark" href="/" aria-label="PARFUM PLACE — главная">PARFUM PLACE</a>
+<a class="header-contact" href="/contacts.html">Контакты</a>
+</header>
+<main id="main" class="wrap">
+<?php if ($message !== null): ?>
+<section class="error"><p class="eyebrow">PARFUM PLACE</p><h1><?= e($message) ?></h1><a class="outline-button" href="/">Вернуться в коллекцию</a></section>
+<?php elseif ($staticPage !== null): ?>
+<section class="info"><a class="breadcrumb" href="/">← В коллекцию</a><h1><?= e($staticPage) ?></h1><p class="muted">Информация скоро появится.</p></section>
+<?php elseif ($product !== null): $b=$brands[$product['brand_id']]; $images=productImages($product['sku'],(int)$product['id']); ?>
+<!-- Актуальный каталог из MySQL. -->
+<a class="breadcrumb" href="<?= e(linkTo(['brand'=>$b['slug']])) ?>">← Все ароматы <?= e($b['name']) ?></a>
+<article class="detail">
+<div class="gallery" aria-label="Фотографии аромата">
+<?php if ($images): ?>
+<?php foreach ($images as $number=>$url): ?><figure><a href="<?= e($url) ?>"><img src="<?= e($url) ?>" alt="<?= e($b['name'].' '.$product['name'].' — фото '.($number+1)) ?>" width="640" height="640" <?= $number===0 ? 'fetchpriority="high"' : 'loading="lazy"' ?>></a><figcaption><?= $number+1 ?> / <?= count($images) ?><?php if(count($images)>1): ?> · Листайте фотографии<?php endif; ?></figcaption></figure><?php endforeach; ?>
+<?php else: ?><figure class="no-photo">Фотографии для этого аромата пока не найдены.</figure><?php endif; ?>
+</div>
+<div>
+<p class="eyebrow"><?= e($b['name']) ?></p>
+<h1 data-product-id="<?= (int)$product['id'] ?>"><?= e($product['name']) ?></h1>
+<dl class="facts"><?php foreach (['gender'=>'Для кого','fragrance_group'=>'Группа ароматов','release_year'=>'Год выпуска'] as $field=>$label): ?><?php if($product[$field]): ?><div><dt><?= e($label) ?></dt><dd><?= e($product[$field]) ?></dd></div><?php endif; ?><?php endforeach; ?></dl>
+<h2>Объём и цена</h2>
+<table class="variants"><thead><tr><th scope="col">Заводской флакон</th><th scope="col">Цена</th></tr></thead><tbody>
+<?php foreach($prices[$product['id']] as $price): ?><tr data-variant><td><?= (int)$price['volume_ml'] ?> мл</td><td><?= e(money($price['effective_price'])) ?></td></tr><?php endforeach; ?>
+</tbody></table><p class="muted">Наличие требует подтверждения.</p>
+<h2>Описание</h2><p class="description"><?= nl2br(e($product['description'] ?: 'Описание пока не добавлено.')) ?></p>
+<h2>Ноты аромата</h2><dl class="notes"><?php foreach(['top_notes'=>'Верхние ноты','heart_notes'=>'Ноты сердца','base_notes'=>'Базовые ноты'] as $field=>$label): ?><div><dt><?= e($label) ?></dt><dd><?= e($product[$field] ?: 'Не указаны') ?></dd></div><?php endforeach; ?></dl>
+</div></article>
 <?php else: ?>
-<h1><?= e($currentBrand['name'] ?? 'Каталог ароматов') ?></h1><h2>Бренды</h2><ul><li><a href="/">Все бренды</a></li>
-<?php foreach ($brands as $b): ?><li><a data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>"><?= e($b['name']) ?></a></li><?php endforeach; ?></ul>
-<form action="/" method="get"><label>Поиск <input name="q" value="<?= e($query) ?>" maxlength="120"></label><input type="hidden" name="brand" value="<?= e($brand) ?>"><button>Найти</button></form>
-<h2>Ароматы</h2><p>Найдено: <?= $total ?>. Страница <?= $page ?> из <?= $pages ?>.</p>
-<?php if (!$items): ?><p>Ароматы не найдены.</p><?php endif; ?><ul>
-<?php foreach ($items as $p): ?><li><a data-product-link href="<?= e(productUrl($p['sku'],$p['brand_slug'])) ?>"><?= e($brands[$p['brand_id']]['name']) ?> — <?= e($p['name']) ?></a></li><?php endforeach; ?></ul>
-<nav aria-label="Страницы каталога"><?php for($i=1;$i<=$pages;$i++): ?><a href="<?= e(linkTo(['brand'=>$brand,'q'=>$query,'page'=>$i])) ?>" <?= $page===$i?'aria-current="page"':'' ?>><?= $i ?></a> <?php endfor; ?></nav>
-<?php endif; ?></body></html>
+<!-- Актуальный каталог из MySQL. -->
+<section class="hero"><p class="eyebrow">Коллекция PARFUM PLACE</p>
+<?php if ($currentBrand !== null): ?><h1><?= e($currentBrand['name']) ?></h1><p>Найдите свой аромат в коллекции бренда</p>
+<?php else: ?><h1>Ароматы,<br>которые говорят о вас</h1><p>Парфюмерия мировых брендов</p><?php endif; ?></section>
+<nav class="brand-tabs" aria-label="Бренды"><a href="/" <?= $brand==='' ? 'aria-current="page"' : '' ?>>Все бренды</a><?php foreach($brands as $b): ?><a data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>" <?= $brand===$b['slug'] ? 'aria-current="page"' : '' ?>><?= e($b['name']) ?></a><?php endforeach; ?></nav>
+<section aria-labelledby="collection-title"><div class="catalog-title"><h2 id="collection-title">Коллекция ароматов</h2><span class="muted"><?= (int)$total ?> ароматов</span></div>
+<?php if (!$items): ?><div class="empty"><p>Ароматы не найдены.</p><a href="/">Вся коллекция</a></div><?php endif; ?>
+<div class="grid">
+<?php foreach($items as $cardIndex=>$p): $photos=productImages($p['sku'],(int)$p['id']); ?>
+<a class="card" data-product-link href="<?= e(productUrl($p['sku'],$p['brand_slug'])) ?>">
+<div class="card-photo"><?php if($photos): ?><img src="<?= e($photos[0]) ?>" alt="<?= e($brands[$p['brand_id']]['name'].' '.$p['name']) ?>" width="320" height="320" loading="<?= $cardIndex<2 ? 'eager' : 'lazy' ?>"><?php else: ?><span class="no-photo">Фото скоро появится</span><?php endif; ?></div>
+<p class="card-brand"><?= e($brands[$p['brand_id']]['name']) ?></p><h3 class="card-name"><?= e($p['name']) ?></h3>
+<p class="card-volume"><?= e(str_replace(',',', ',$p['volumes'] ?? '')) ?> мл</p><p class="card-price"><?= e(money($p['min_price'])) ?></p><span class="outline-button">Подробнее</span>
+</a><?php endforeach; ?>
+</div>
+<nav class="pagination" aria-label="Страницы каталога"><?php for($i=1;$i<=$pages;$i++): ?><a href="<?= e(linkTo(['brand'=>$brand,'q'=>$query,'page'=>$i])) ?>" <?= $page===$i?'aria-current="page"':'' ?> aria-label="Страница <?= $i ?>"><?= $i ?></a><?php endfor; ?></nav>
+<p class="page-caption">Найдено: <?= (int)$total ?>. Страница <?= (int)$page ?> из <?= (int)$pages ?>.</p>
+</section>
+<?php endif; ?>
+</main>
+<footer class="footer wrap"><nav aria-label="Информация"><?php foreach($staticPages as $url=>$label): ?><a href="<?= e($url) ?>"><?= e($label) ?></a><?php endforeach; ?></nav><small>PARFUM PLACE · <?= date('Y') ?></small></footer>
+<a class="manager" href="/contacts.html" aria-label="Связаться с менеджером"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8 9 9 0 0 1-3.5-.7L4 20l1.2-4.5a8 8 0 1 1 14.8-4z"/><path d="M8 11h.01M12 11h.01M16 11h.01" stroke-linecap="round" stroke-width="2"/></svg></a>
+</body></html>

@@ -13,6 +13,9 @@ on:
     branches: [main]
     paths:
       - 'review-site/**'
+      - 'resources/**'
+      - 'bootstrap/**'
+      - 'tools/build_single_php.py'
       - '.github/workflows/deploy-review.yml'
 permissions:
   contents: read
@@ -48,6 +51,7 @@ jobs:
         run: |
           python3 -m pip install --disable-pip-version-check Pillow==12.0.0
           python3 -m unittest discover -s tests/Unit -p 'test_*.py' -v
+          python3 tools/build_single_php.py
           php -l review-site/index.php
           php -r 'file_put_contents("/tmp/parfum-ci-database.php", "<?php return " . var_export(["host"=>"127.0.0.1","name"=>"parfum_place_dev","user"=>"root","password"=>getenv("DB_PASSWORD")], true) . ";");'
           php tools/import_mysql_catalog.php /tmp/parfum-ci-database.php
@@ -106,7 +110,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import urllib.request
-          for page in ['', 'index.php?page=2', 'dior/sauvage.html', 'louis-vuitton/ombre-nomade.html', 'yves-saint-laurent/']:
+          for page in ['', 'index.php?page=2', 'dior/sauvage.html', 'louis-vuitton/ombre-nomade.html', 'yves-saint-laurent/', 'about.html', 'delivery.html', 'payment.html', 'contacts.html']:
               url = 'https://parfumplace.ru/' + page
               with urllib.request.urlopen(url, timeout=30) as response:
                   body = response.read().decode('utf-8')
