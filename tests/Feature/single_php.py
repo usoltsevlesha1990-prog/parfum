@@ -59,17 +59,19 @@ class SinglePhpTests(unittest.TestCase):
     def test_homepage_has_curated_carousels(self):
         status,body=self.get('/')
         self.assertEqual(status,200)
-        self.assertEqual(body.count('data-product-link'),10)
+        self.assertEqual(body.count('data-product-link'),13)
         self.assertIn('class="brand-carousel"',body)
         self.assertIn('class="feature-track"',body)
         self.assertNotIn('class="pagination"',body)
         self.assertNotIn('class="grid"',body)
         self.assertNotIn('<form',body)
-        self.assertIn('В центре внимания',body)
+        self.assertIn('ТОП ароматов',body)
         self.assertNotIn('Самые покупаемые',body)
         links=re.findall(r'data-product-link href="([^"]+)"',body)
-        self.assertEqual(len(set(links)),10)
+        self.assertEqual(len(set(links)),13)
         self.assertGreaterEqual(len({link.split('/')[1] for link in links}),6)
+        self.assertIn('/chanel/allure-homme-sport.html',links)
+        self.assertNotIn('/chanel/allure-homme-sport-cologne.html',links)
         self.assertIn('href="/catalog.html"',body)
 
     def test_catalog(self):
@@ -128,7 +130,7 @@ class SinglePhpTests(unittest.TestCase):
             self.assertEqual(images,expected)
             self.assertIn('Флакон · 1 / 2',body)
             self.assertIn('Флакон и коробка · 2 / 2',body)
-            _,catalog=self.get('/')
+            _,catalog=self.get('catalog.html')
             self.assertIn('src="'+expected[0]+'"',catalog)
             self.assertNotIn('src="'+expected[1]+'"',catalog)
         finally:

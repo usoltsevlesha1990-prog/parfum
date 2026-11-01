@@ -71,7 +71,7 @@ final class CatalogRepository
 
     public function featured(array $ids): array
     {
-        if (!$ids || count($ids)>10 || array_filter($ids,static fn($id)=>!is_int($id)||$id<=0)) { throw new RuntimeException('Invalid homepage product IDs'); }
+        if (!$ids || count($ids)>20 || array_filter($ids,static fn($id)=>!is_int($id)||$id<=0)) { throw new RuntimeException('Invalid homepage product IDs'); }
         $statement=$this->db->prepare($this->cardsQuery().' WHERE '.$this->eligible().' AND p.id IN ('.implode(',',array_fill(0,count($ids),'?')).')');
         $statement->execute($ids);
         $rows=[];

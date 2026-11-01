@@ -30,7 +30,7 @@ function productUrl(string $sku, string $brandSlug): string
     }
     return '/' . rawurlencode($brandSlug) . '/' . rawurlencode($name) . '.html';
 }
-function homepageProductIds(): array { return [2, 11, 7, 16, 25, 10, 21, 1, 17, 13]; }
+function homepageProductIds(): array { return [25, 73, 57, 74, 7, 41, 17, 75, 8, 2, 10, 13, 59]; }
 function aromaCount(int $count): string
 {
     $tail=$count%100;
@@ -71,7 +71,7 @@ final class CatalogRepository
 
     public function featured(array $ids): array
     {
-        if (!$ids || count($ids)>10 || array_filter($ids,static fn($id)=>!is_int($id)||$id<=0)) { throw new RuntimeException('Invalid homepage product IDs'); }
+        if (!$ids || count($ids)>20 || array_filter($ids,static fn($id)=>!is_int($id)||$id<=0)) { throw new RuntimeException('Invalid homepage product IDs'); }
         $statement=$this->db->prepare($this->cardsQuery().' WHERE '.$this->eligible().' AND p.id IN ('.implode(',',array_fill(0,count($ids),'?')).')');
         $statement->execute($ids);
         $rows=[];
@@ -360,7 +360,7 @@ function productImages(string $sku, ?int $productId = null): array
 <?php else: ?>
 <nav class="brand-tabs" aria-label="Бренды"><a href="/catalog.html" <?= $brand==='' ? 'aria-current="page"' : '' ?>>Все бренды</a><?php foreach($brands as $b): ?><a data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>" <?= $brand===$b['slug'] ? 'aria-current="page"' : '' ?>><?= e($b['name']) ?></a><?php endforeach; ?></nav>
 <?php endif; ?>
-<section class="<?= $isHome ? 'home-featured' : 'catalog-section' ?>" aria-labelledby="collection-title"><div class="section-heading"><div><?php if($isHome): ?><p class="eyebrow">Десять ароматов из нашей коллекции</p><?php endif; ?><h2 id="collection-title"><?= $isHome ? 'В центре внимания' : 'Коллекция ароматов' ?></h2></div><?php if(!$isHome): ?><span class="muted"><?= e(aromaCount((int)$total)) ?></span><?php endif; ?></div>
+<section class="<?= $isHome ? 'home-featured' : 'catalog-section' ?>" aria-labelledby="collection-title"><div class="section-heading"><div><?php if($isHome): ?><p class="eyebrow">Выбор PARFUM PLACE</p><?php endif; ?><h2 id="collection-title"><?= $isHome ? 'ТОП ароматов' : 'Коллекция ароматов' ?></h2></div><?php if(!$isHome): ?><span class="muted"><?= e(aromaCount((int)$total)) ?></span><?php endif; ?></div>
 <?php if (!$items): ?><div class="empty"><p>Ароматы не найдены.</p><a href="/catalog.html">Вся коллекция</a></div><?php endif; ?>
 <div class="<?= $isHome ? 'feature-track' : 'grid' ?>"<?= $isHome ? ' tabindex="0" role="region" aria-label="Подборка ароматов — листайте горизонтально"' : '' ?>>
 <?php foreach($items as $cardIndex=>$p): $photos=productImages($p['sku'],(int)$p['id']); ?>

@@ -8,7 +8,7 @@ output = backend.rsplit('?>', 1)[0] + images + '\n?>\n' + (root/'resources/views
 import json
 selection=json.loads((root/'resources/catalog/image-selection.json').read_text())
 featured=json.loads((root/'resources/catalog/homepage.json').read_text())['featured_ids']
-assert len(featured)==10 and len(set(featured))==10 and all(isinstance(id,int) and id>0 for id in featured)
+assert 1<=len(featured)<=20 and len(set(featured))==len(featured) and all(isinstance(id,int) and id>0 for id in featured)
 output=output.replace('__FEATURED_IDS__',json.dumps(featured))
 output=output.replace('__PHOTO_SELECTION__',json.dumps(selection,ensure_ascii=False,separators=(',',':')))
 output=output.replace('__STYLE__',(root/'resources/styles/store.css').read_text())
