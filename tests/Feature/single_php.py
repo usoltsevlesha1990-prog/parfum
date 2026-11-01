@@ -112,20 +112,20 @@ class SinglePhpTests(unittest.TestCase):
         class NoRedirect(urllib.request.HTTPRedirectHandler):
             def redirect_request(self, req, fp, code, msg, headers, newurl): return None
         opener=urllib.request.build_opener(NoRedirect)
-        for legacy in ['index.php?sku=dior-sauvage','dior/sauvage']:
+        for legacy in ['index.php?sku=dior-sauvage','dior/sauvage','dior/sauvage/']:
             with self.assertRaises(urllib.error.HTTPError) as result:
                 opener.open(self.base+legacy,timeout=5)
             self.assertEqual(result.exception.code,301)
-            self.assertEqual(result.exception.headers['Location'],'/dior/sauvage/')
-        status,body=self.get('/dior/sauvage/')
+            self.assertEqual(result.exception.headers['Location'],'/dior/sauvage.html')
+        status,body=self.get('/dior/sauvage.html')
         self.assertEqual(status,200)
         self.assertIn('Sauvage',body)
-        self.assertIn('href="https://parfumplace.ru/dior/sauvage/"',body)
+        self.assertIn('href="https://parfumplace.ru/dior/sauvage.html"',body)
         self.assertEqual(self.get('/chanel/sauvage/')[0],404)
         self.assertEqual(self.get('/dior/not-a-fragrance/')[0],404)
         _,home=self.get()
         links=re.findall(r'data-product-link href="([^"]+)"',home)
-        self.assertTrue(all(re.fullmatch(r'/[a-z0-9-]+/[a-z0-9-]+/',link) for link in links))
+        self.assertTrue(all(re.fullmatch(r'/[a-z0-9-]+/[a-z0-9-]+\.html',link) for link in links))
 
     def test_brand_canonical_urls(self):
         class NoRedirect(urllib.request.HTTPRedirectHandler):

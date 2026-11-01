@@ -27,7 +27,7 @@ function productUrl(string $sku, string $brandSlug): string
     while (str_starts_with($name, $brandSlug . '-') && strlen($name) > strlen($brandSlug) + 1) {
         $name = substr($name, strlen($brandSlug) + 1);
     }
-    return '/' . rawurlencode($brandSlug) . '/' . rawurlencode($name) . '/';
+    return '/' . rawurlencode($brandSlug) . '/' . rawurlencode($name) . '.html';
 }
 final class CatalogRepository
 {
@@ -82,7 +82,7 @@ final class CatalogRepository
         $statement->execute([$brand]);
         $matches = [];
         foreach ($statement->fetchAll(PDO::FETCH_COLUMN) as $sku) {
-            if (productUrl($sku, $brand) === '/' . $brand . '/' . $name . '/') { $matches[] = $sku; }
+            if (productUrl($sku, $brand) === '/' . $brand . '/' . $name . '.html') { $matches[] = $sku; }
         }
         if (count($matches) > 1) { throw new RuntimeException('Duplicate canonical product URL'); }
         return $matches ? $this->product($matches[0]) : null;
@@ -132,7 +132,7 @@ try {
         if (strlen($query)>480 || preg_match('//u',$query)!==1 || strlen($brand)>60 || !preg_match('/^[a-zA-Z0-9_-]*$/D',$brand) || strlen($sku)>150 || !preg_match('/^[a-zA-Z0-9_-]*$/D',$sku) || !preg_match('/^[1-9][0-9]{0,5}$/D',$rawPage)) { throw new InvalidArgumentException(); }
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         $route = [];
-        if (!is_string($path) || (!in_array($path, ['/', '/index.php'], true) && !preg_match('~^/([a-z0-9-]+)(?:/([a-z0-9-]+))?/?$~D', $path, $route))) {
+        if (!is_string($path) || (!in_array($path, ['/', '/index.php'], true) && !preg_match('~^/([a-z0-9-]+)(?:/([a-z0-9-]+)(?:\.html)?)?/?$~D', $path, $route))) {
             http_response_code(404); $message='Страница не найдена';
         }
         $repo=new CatalogRepository(database());

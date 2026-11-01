@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Publish same-owner index.php symlinks for brand/fragrance URLs (no server rewrite needed)."""
+"""Publish brand routes and safe Apache rewrites for fragrance .html URLs."""
 import argparse
 from html.parser import HTMLParser
 import posixpath
 import re
 import stat
 import urllib.request
+import secrets
 
 ROOT='/home/parfumplace/web/parfumplace.ru/public_html'
 
@@ -29,7 +30,7 @@ def catalog_routes():
             if not 1<=pages<=1000:raise ValueError('Unexpected catalog size')
         parser=Links();parser.feed(text)
         for path in parser.products:
-            if not re.fullmatch(r'/[a-z0-9-]+/[a-z0-9-]+/',path):raise ValueError('Unexpected product route')
+            if not re.fullmatch(r'/[a-z0-9-]+/[a-z0-9-]+\.html',path):raise ValueError('Unexpected product route')
             if path.split('/')[1] in {'pict','products_pictures','private','assets'}:raise ValueError('Reserved route prefix')
             routes.add(path)
         if number==pages:break
@@ -64,12 +65,34 @@ def publish(key,known_hosts):
             for route in sorted(brand_routes):
                 directory=posixpath.join(ROOT,route.strip('/'))
                 ensure_directory(sftp,directory);ensure_index(sftp,directory,'../index.php')
-            for route in routes:
-                brand,name=route.strip('/').split('/')
-                parent=posixpath.join(ROOT,brand)
-                directory=posixpath.join(parent,name)
-                ensure_directory(sftp,parent);ensure_directory(sftp,directory)
-                ensure_index(sftp,directory,'../../index.php')
+            # .html URLs are internally rewritten to PHP; never expose PHP as static HTML.
+            entry=ROOT+'/.htaccess'
+            try:
+                attributes=sftp.lstat(entry)
+                if not stat.S_ISREG(attributes.st_mode):raise ValueError('Refusing to replace non-regular .htaccess')
+                with sftp.open(entry,'rb') as handle:previous=handle.read(65537)
+                if len(previous)>65536:raise ValueError('Unexpectedly large .htaccess')
+            except FileNotFoundError:previous=b''
+            block=br"""# BEGIN PARFUM PLACE PRODUCT URLS
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^([a-z0-9-]+)/([a-z0-9-]+)\.html$ /index.php [END,QSA]
+</IfModule>
+# END PARFUM PLACE PRODUCT URLS
+"""
+            remaining=re.sub(rb'# BEGIN PARFUM PLACE PRODUCT URLS.*?# END PARFUM PLACE PRODUCT URLS\r?\n?',b'',previous,flags=re.S)
+            updated=block+remaining
+            if updated!=previous:
+                if previous:
+                    backup='/home/parfumplace/web/parfumplace.ru/private/htaccess-before-html-'+secrets.token_hex(8)
+                    with sftp.open(backup,'wb') as handle:handle.write(previous)
+                    sftp.chmod(backup,0o600)
+                temporary=entry+'.'+secrets.token_hex(8)+'.tmp'
+                with sftp.open(temporary,'wb') as handle:handle.write(updated)
+                sftp.chmod(temporary,0o644)
+                sftp.posix_rename(temporary,entry)
     finally:client.close()
     print(f'Canonical routes published: {len(routes)} product and {len(brand_routes)} brand pages; all share the root index.php')
 
