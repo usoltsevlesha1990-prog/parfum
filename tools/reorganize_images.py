@@ -82,13 +82,13 @@ def filename(number, data):
 
 def prepare(destination):
     destination.mkdir(parents=True, exist_ok=False)
-    first, text = page('index.php')
+    first, text = page('catalog.html')
     match = re.search(r'Страница\s+1\s+из\s+(\d+)', text)
     if not match or not 1 <= int(match[1]) <= 1000:
         raise ValueError('Cannot establish catalog page count')
     links = set(first.links)
     for number in range(2, int(match[1]) + 1):
-        links.update(page(f'index.php?page={number}')[0].links)
+        links.update(page(f'catalog.html?page={number}')[0].links)
     products = []
     commands = ['-mkdir /home/parfumplace/web/parfumplace.ru/public_html/pict']
     complete = destination / 'complete'

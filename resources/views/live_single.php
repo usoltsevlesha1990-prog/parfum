@@ -6,22 +6,22 @@
 <title><?= e($title) ?> — PARFUM PLACE</title>
 <?php if ($product !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e(productUrl($product['sku'],$product['brand_slug'])) ?>">
 <?php elseif ($currentBrand !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e(linkTo(['brand'=>$brand,'page'=>$page,'q'=>$query])) ?>">
-<?php elseif ($staticPage !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e($path) ?>"><?php endif; ?>
+<?php elseif ($staticPage !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e($path) ?>"><?php elseif ($isHome): ?><link rel="canonical" href="https://parfumplace.ru/"><?php else: ?><link rel="canonical" href="https://parfumplace.ru<?= e(linkTo(['page'=>$page,'q'=>$query])) ?>"><?php endif; ?>
 <style nonce="<?= e($styleNonce) ?>">__STYLE__</style>
 </head>
 <body>
 <a class="skip" href="#main">Перейти к содержимому</a>
 <header class="header wrap">
 <details class="menu"><summary aria-label="Открыть меню"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></summary>
-<nav aria-label="Основное меню"><a href="/">Коллекция</a><?php foreach ($staticPages as $url=>$label): ?><a href="<?= e($url) ?>"><?= e($label) ?></a><?php endforeach; ?></nav></details>
+<nav aria-label="Основное меню"><a href="/">Главная</a><a href="/catalog.html">Каталог</a><?php foreach ($staticPages as $url=>$label): ?><a href="<?= e($url) ?>"><?= e($label) ?></a><?php endforeach; ?></nav></details>
 <a class="wordmark" href="/" aria-label="PARFUM PLACE — главная">PARFUM PLACE</a>
 <a class="header-contact" href="/contacts.html">Контакты</a>
 </header>
 <main id="main" class="wrap">
 <?php if ($message !== null): ?>
-<section class="error"><p class="eyebrow">PARFUM PLACE</p><h1><?= e($message) ?></h1><a class="outline-button" href="/">Вернуться в коллекцию</a></section>
+<section class="error"><p class="eyebrow">PARFUM PLACE</p><h1><?= e($message) ?></h1><a class="outline-button" href="/catalog.html">Вернуться в коллекцию</a></section>
 <?php elseif ($staticPage !== null): ?>
-<section class="info"><a class="breadcrumb" href="/">← В коллекцию</a><h1><?= e($staticPage) ?></h1><p class="muted">Информация скоро появится.</p></section>
+<section class="info"><a class="breadcrumb" href="/catalog.html">← В коллекцию</a><h1><?= e($staticPage) ?></h1><p class="muted">Информация скоро появится.</p></section>
 <?php elseif ($product !== null): $b=$brands[$product['brand_id']]; $images=productImages($product['sku'],(int)$product['id']); ?>
 <!-- Актуальный каталог из MySQL. -->
 <a class="breadcrumb" href="<?= e(linkTo(['brand'=>$b['slug']])) ?>">← Все ароматы <?= e($b['name']) ?></a>
@@ -44,13 +44,22 @@
 </div></article>
 <?php else: ?>
 <!-- Актуальный каталог из MySQL. -->
-<section class="hero"><p class="eyebrow">Коллекция PARFUM PLACE</p>
+<section class="hero <?= $isHome ? 'home-hero' : '' ?>"><p class="eyebrow">Коллекция PARFUM PLACE</p>
 <?php if ($currentBrand !== null): ?><h1><?= e($currentBrand['name']) ?></h1><p>Найдите свой аромат в коллекции бренда</p>
-<?php else: ?><h1>Ароматы,<br>которые говорят о вас</h1><p>Парфюмерия мировых брендов</p><?php endif; ?></section>
-<nav class="brand-tabs" aria-label="Бренды"><a href="/" <?= $brand==='' ? 'aria-current="page"' : '' ?>>Все бренды</a><?php foreach($brands as $b): ?><a data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>" <?= $brand===$b['slug'] ? 'aria-current="page"' : '' ?>><?= e($b['name']) ?></a><?php endforeach; ?></nav>
-<section aria-labelledby="collection-title"><div class="catalog-title"><h2 id="collection-title">Коллекция ароматов</h2><span class="muted"><?= (int)$total ?> ароматов</span></div>
-<?php if (!$items): ?><div class="empty"><p>Ароматы не найдены.</p><a href="/">Вся коллекция</a></div><?php endif; ?>
-<div class="grid">
+<?php elseif ($isHome): ?><h1>Ароматы,<br>которые говорят о вас</h1><p>Знакомьтесь с парфюмерными домами.<br>Выбирайте своё звучание.</p><a class="primary-button" href="/catalog.html">Смотреть коллекцию <span aria-hidden="true">↗</span></a>
+<?php else: ?><h1>Коллекция ароматов</h1><p>Парфюмерия мировых брендов</p><?php endif; ?></section>
+<?php if ($isHome): ?>
+<section class="home-brands" aria-labelledby="brand-title"><div class="section-heading"><div><p class="eyebrow">Знакомые имена. Разные характеры.</p><h2 id="brand-title">Парфюмерные дома</h2></div><a class="text-link" href="/catalog.html">Все бренды ↗</a></div>
+<nav class="brand-carousel" aria-label="Лента брендов">
+<?php foreach($brands as $b): if($b['slug']==='prochie') { continue; } ?><a class="brand-tile brand-<?= e($b['slug']) ?>" data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>"><span class="brand-wordmark"><?= e($b['name']) ?></span><small><?= e(aromaCount((int)$b['product_count'])) ?></small></a><?php endforeach; ?>
+</nav><p class="swipe-hint">Листайте, чтобы увидеть все бренды <span aria-hidden="true">→</span></p>
+</section>
+<?php else: ?>
+<nav class="brand-tabs" aria-label="Бренды"><a href="/catalog.html" <?= $brand==='' ? 'aria-current="page"' : '' ?>>Все бренды</a><?php foreach($brands as $b): ?><a data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>" <?= $brand===$b['slug'] ? 'aria-current="page"' : '' ?>><?= e($b['name']) ?></a><?php endforeach; ?></nav>
+<?php endif; ?>
+<section class="<?= $isHome ? 'home-featured' : 'catalog-section' ?>" aria-labelledby="collection-title"><div class="section-heading"><div><?php if($isHome): ?><p class="eyebrow">Десять ароматов из нашей коллекции</p><?php endif; ?><h2 id="collection-title"><?= $isHome ? 'В центре внимания' : 'Коллекция ароматов' ?></h2></div><?php if(!$isHome): ?><span class="muted"><?= e(aromaCount((int)$total)) ?></span><?php endif; ?></div>
+<?php if (!$items): ?><div class="empty"><p>Ароматы не найдены.</p><a href="/catalog.html">Вся коллекция</a></div><?php endif; ?>
+<div class="<?= $isHome ? 'feature-track' : 'grid' ?>"<?= $isHome ? ' tabindex="0" role="region" aria-label="Подборка ароматов — листайте горизонтально"' : '' ?>>
 <?php foreach($items as $cardIndex=>$p): $photos=productImages($p['sku'],(int)$p['id']); ?>
 <a class="card" data-product-link href="<?= e(productUrl($p['sku'],$p['brand_slug'])) ?>">
 <div class="card-photo"><?php if($photos): ?><img src="<?= e($photos[0]) ?>" alt="<?= e($brands[$p['brand_id']]['name'].' '.$p['name']) ?>" width="320" height="320" loading="<?= $cardIndex<2 ? 'eager' : 'lazy' ?>"><?php else: ?><span class="no-photo">Фото скоро появится</span><?php endif; ?></div>
@@ -58,8 +67,11 @@
 <p class="card-volume"><?= e(str_replace(',',', ',$p['volumes'] ?? '')) ?> мл</p><p class="card-price"><?= e(money($p['min_price'])) ?></p><span class="outline-button">Подробнее</span>
 </a><?php endforeach; ?>
 </div>
+<?php if($isHome): ?><p class="swipe-hint">Листайте подборку <span aria-hidden="true">→</span></p><div class="all-catalog"><a class="outline-button" href="/catalog.html">Весь каталог · <?= e(aromaCount((int)$total)) ?> <span aria-hidden="true">↗</span></a></div>
+<?php else: ?>
 <nav class="pagination" aria-label="Страницы каталога"><?php for($i=1;$i<=$pages;$i++): ?><a href="<?= e(linkTo(['brand'=>$brand,'q'=>$query,'page'=>$i])) ?>" <?= $page===$i?'aria-current="page"':'' ?> aria-label="Страница <?= $i ?>"><?= $i ?></a><?php endfor; ?></nav>
 <p class="page-caption">Найдено: <?= (int)$total ?>. Страница <?= (int)$page ?> из <?= (int)$pages ?>.</p>
+<?php endif; ?>
 </section>
 <?php endif; ?>
 </main>

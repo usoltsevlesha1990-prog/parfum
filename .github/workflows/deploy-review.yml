@@ -114,7 +114,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import urllib.request
-          for page in ['', 'index.php?page=2', 'dior/sauvage.html', 'louis-vuitton/ombre-nomade.html', 'yves-saint-laurent/', 'about.html', 'delivery.html', 'payment.html', 'contacts.html']:
+          for page in ['', 'catalog.html', 'catalog.html?page=2', 'dior/sauvage.html', 'louis-vuitton/ombre-nomade.html', 'yves-saint-laurent/', 'about.html', 'delivery.html', 'payment.html', 'contacts.html']:
               url = 'https://parfumplace.ru/' + page
               with urllib.request.urlopen(url, timeout=30) as response:
                   body = response.read().decode('utf-8')

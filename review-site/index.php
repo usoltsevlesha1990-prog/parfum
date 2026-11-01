@@ -19,7 +19,7 @@ function linkTo(array $parameters = []): string
     unset($parameters['brand']);
     if (($parameters['page'] ?? null) == 1) { unset($parameters['page']); }
     if (($parameters['q'] ?? null) === '') { unset($parameters['q']); }
-    $path = $brand !== '' ? '/' . rawurlencode($brand) . '/' : '/';
+    $path = $brand !== '' ? '/' . rawurlencode($brand) . '/' : '/catalog.html';
     return $path . ($parameters ? '?' . http_build_query($parameters) : '');
 }
 function productUrl(string $sku, string $brandSlug): string
@@ -29,6 +29,13 @@ function productUrl(string $sku, string $brandSlug): string
         $name = substr($name, strlen($brandSlug) + 1);
     }
     return '/' . rawurlencode($brandSlug) . '/' . rawurlencode($name) . '.html';
+}
+function homepageProductIds(): array { return [2, 11, 7, 16, 25, 10, 21, 1, 17, 13]; }
+function aromaCount(int $count): string
+{
+    $tail=$count%100;
+    $word=($tail>=11 && $tail<=14) ? 'ароматов' : ($count%10===1 ? 'аромат' : (in_array($count%10,[2,3,4],true) ? 'аромата' : 'ароматов'));
+    return $count.' '.$word;
 }
 final class CatalogRepository
 {
@@ -57,6 +64,28 @@ final class CatalogRepository
         return $this->db->query('SELECT b.id, b.slug, b.name, COUNT(p.id) AS product_count FROM brands b LEFT JOIN products p ON p.brand_id=b.id AND ' . $this->eligible() . ' GROUP BY b.id,b.slug,b.name,b.sort_order ORDER BY b.sort_order,b.name')->fetchAll();
     }
 
+    private function cardsQuery(): string
+    {
+        return 'SELECT p.*,b.name AS brand_name,b.slug AS brand_slug,prices.min_price,prices.volumes FROM products p JOIN brands b ON b.id=p.brand_id LEFT JOIN (SELECT product_id,MIN(' . self::PRICE . ') AS min_price,GROUP_CONCAT(volume_ml ORDER BY volume_ml) AS volumes FROM product_prices WHERE price>0 AND volume_ml IN (' . $this->volumes . ') GROUP BY product_id) prices ON prices.product_id=p.id';
+    }
+
+    public function featured(array $ids): array
+    {
+        if (!$ids || count($ids)>10 || array_filter($ids,static fn($id)=>!is_int($id)||$id<=0)) { throw new RuntimeException('Invalid homepage product IDs'); }
+        $statement=$this->db->prepare($this->cardsQuery().' WHERE '.$this->eligible().' AND p.id IN ('.implode(',',array_fill(0,count($ids),'?')).')');
+        $statement->execute($ids);
+        $rows=[];
+        foreach ($statement->fetchAll() as $row) { $rows[(int)$row['id']]=$row; }
+        $ordered=[];
+        foreach ($ids as $id) { if (isset($rows[$id])) { $ordered[]=$rows[$id]; } }
+        return $ordered;
+    }
+
+    public function countProducts(): int
+    {
+        return (int)$this->db->query('SELECT COUNT(*) FROM products p JOIN brands b ON b.id=p.brand_id WHERE '.$this->eligible())->fetchColumn();
+    }
+
     public function search(string $query, string $brand, int $page): array
     {
         $where = [$this->eligible()]; $args = [];
@@ -72,7 +101,7 @@ final class CatalogRepository
         $total = (int) $count->fetchColumn();
         $pages = max(1, (int) ceil($total / 12));
         $page = min($page, $pages);
-        $sql = 'SELECT p.*,b.name AS brand_name,b.slug AS brand_slug,prices.min_price,prices.volumes FROM products p JOIN brands b ON b.id=p.brand_id LEFT JOIN (SELECT product_id,MIN(' . self::PRICE . ') AS min_price,GROUP_CONCAT(volume_ml ORDER BY volume_ml) AS volumes FROM product_prices WHERE price>0 AND volume_ml IN (' . $this->volumes . ') GROUP BY product_id) prices ON prices.product_id=p.id' . $filter . ' ORDER BY b.sort_order,p.sort_order,p.id LIMIT 12 OFFSET ' . (($page - 1) * 12);
+        $sql = $this->cardsQuery() . $filter . ' ORDER BY b.sort_order,p.sort_order,p.id LIMIT 12 OFFSET ' . (($page - 1) * 12);
         $stmt = $this->db->prepare($sql); $stmt->execute($args);
         return ['items' => $stmt->fetchAll(), 'total' => $total, 'page' => $page, 'pages' => $pages];
     }
@@ -123,7 +152,7 @@ function database(): PDO {
     return $pdo;
 }
 $staticPages=['/about.html'=>'О нас','/delivery.html'=>'Доставка','/payment.html'=>'Оплата','/contacts.html'=>'Контакты'];
-$staticPage=null;
+$staticPage=null; $isHome=false;
 $currentBrand=null; $message=null; $product=null; $query=''; $brand=''; $page=1; $brands=[]; $prices=[]; $items=[]; $total=0; $pages=1;
 try {
     if (!in_array($_SERVER['REQUEST_METHOD'],['GET','HEAD'],true)) { header('Allow: GET, HEAD'); http_response_code(405); $message='Метод не поддерживается'; }
@@ -135,9 +164,14 @@ try {
         if (strlen($query)>480 || preg_match('//u',$query)!==1 || strlen($brand)>60 || !preg_match('/^[a-zA-Z0-9_-]*$/D',$brand) || strlen($sku)>150 || !preg_match('/^[a-zA-Z0-9_-]*$/D',$sku) || !preg_match('/^[1-9][0-9]{0,5}$/D',$rawPage)) { throw new InvalidArgumentException(); }
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         $route = [];
-        if (!is_string($path) || (!in_array($path, ['/', '/index.php'], true) && !isset($staticPages[$path]) && !preg_match('~^/([a-z0-9-]+)(?:/([a-z0-9-]+)(?:\.html)?)?/?$~D', $path, $route))) {
+        if (!is_string($path) || (!in_array($path, ['/', '/index.php', '/catalog.html'], true) && !isset($staticPages[$path]) && !preg_match('~^/([a-z0-9-]+)(?:/([a-z0-9-]+)(?:\.html)?)?/?$~D', $path, $route))) {
             http_response_code(404); $message='Страница не найдена';
         }
+        $isHome=in_array($path,['/','/index.php'],true) && $brand==='' && $sku==='' && !isset($_GET['page']) && $query==='';
+        if (in_array($path,['/','/index.php'],true) && $brand==='' && $sku==='' && !$isHome) {
+            http_response_code(301); header('Location: '.linkTo(['page'=>(int)$rawPage,'q'=>$query])); exit;
+        }
+        if ($isHome && $path==='/index.php') { http_response_code(301); header('Location: /'); exit; }
         $staticPage=$staticPages[$path] ?? null;
         if ($staticPage === null) {
         $repo=new CatalogRepository(database());
@@ -161,14 +195,18 @@ try {
                     http_response_code(301); header('Location: ' . linkTo(['brand'=>$brand,'q'=>$query,'page'=>(int)$rawPage])); exit;
                 }
             }
-            $catalog=$repo->search($query,$brand,(int)$rawPage);
-            $items=$catalog['items']; $total=$catalog['total']; $page=$catalog['page']; $pages=$catalog['pages'];
+            if ($isHome) {
+                $items=$repo->featured(homepageProductIds()); $total=$repo->countProducts();
+            } else {
+                $catalog=$repo->search($query,$brand,(int)$rawPage);
+                $items=$catalog['items']; $total=$catalog['total']; $page=$catalog['page']; $pages=$catalog['pages'];
+            }
         }
         }
     }
 } catch (InvalidArgumentException $error) { http_response_code(400); $message='Некорректные параметры'; }
 catch (Throwable $error) { http_response_code(503); header('X-Catalog-Error: ' . ($error instanceof PDOException ? 'MYSQL-' . (int) ($error->errorInfo[1] ?? 0) : (str_contains($error->getMessage(), 'Missing database config') ? 'CONFIG-MISSING' : 'CONFIG-ERROR'))); error_log('PARFUM PLACE MySQL request failed: '.get_class($error)); $message='Каталог временно недоступен. Проверьте подключение к MySQL.'; }
-$title=$staticPage ?? ($product ? $brands[$product['brand_id']]['name'].' — '.$product['name'] : ($currentBrand['name'] ?? 'Каталог ароматов'));
+$title=$staticPage ?? ($product ? $brands[$product['brand_id']]['name'].' — '.$product['name'] : ($currentBrand['name'] ?? ($isHome ? 'Парфюмерия мировых брендов' : 'Каталог ароматов')));
 if ($_SERVER['REQUEST_METHOD']==='HEAD') { exit; }
 
 
@@ -267,23 +305,26 @@ function productImages(string $sku, ?int $productId = null): array
 <title><?= e($title) ?> — PARFUM PLACE</title>
 <?php if ($product !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e(productUrl($product['sku'],$product['brand_slug'])) ?>">
 <?php elseif ($currentBrand !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e(linkTo(['brand'=>$brand,'page'=>$page,'q'=>$query])) ?>">
-<?php elseif ($staticPage !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e($path) ?>"><?php endif; ?>
+<?php elseif ($staticPage !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e($path) ?>"><?php elseif ($isHome): ?><link rel="canonical" href="https://parfumplace.ru/"><?php else: ?><link rel="canonical" href="https://parfumplace.ru<?= e(linkTo(['page'=>$page,'q'=>$query])) ?>"><?php endif; ?>
 <style nonce="<?= e($styleNonce) ?>">:root{--accent:#7a3045;--ink:#303033;--muted:#786e73;--line:#eadde2;--wash:#fcf9fa;--serif:Georgia,'Times New Roman',serif}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:#fff;color:var(--ink);font:15px/1.65 Arial,Helvetica,sans-serif}a{color:inherit;text-decoration:none}a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:4px}.wrap{width:min(1160px,calc(100% - 48px));margin:auto}.skip{position:absolute;top:-90px;background:white;padding:10px;z-index:10}.skip:focus{top:5px}.header{height:96px;display:grid;grid-template-columns:70px 1fr 70px;align-items:center;border-bottom:1px solid var(--line)}.wordmark{text-align:center;font:27px var(--serif);letter-spacing:2px;white-space:nowrap}.icon{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.5}.menu{position:relative;z-index:5}.menu summary{cursor:pointer;display:grid;place-items:center;width:44px;height:44px;list-style:none;color:var(--accent)}summary::-webkit-details-marker{display:none}.menu nav{position:absolute;left:0;top:48px;width:225px;padding:12px 20px;background:white;border:1px solid var(--line);box-shadow:0 8px 28px #38202b12}.menu nav a{display:block;padding:12px 0;border-bottom:1px solid var(--line)}.menu nav a:last-child{border:0}.header-contact{justify-self:end;color:var(--accent);font:13px var(--serif);padding:12px 0}.hero{text-align:center;padding:44px 0 30px}.eyebrow{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin:0 0 12px}.hero h1{font:42px/1.2 var(--serif);font-weight:400;margin:0}.hero p:last-child{font:14px var(--serif);color:var(--muted);margin:16px 0 0}.brand-tabs{display:flex;gap:30px;overflow-x:auto;scrollbar-width:thin;border-bottom:1px solid var(--line);padding:0 0 1px;margin:0 0 24px}.brand-tabs a{flex:none;font:15px var(--serif);padding:13px 2px;border-bottom:2px solid transparent;min-height:44px}.brand-tabs [aria-current]{color:var(--accent);border-bottom-color:var(--accent)}.catalog-title{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}.catalog-title h2{font:24px var(--serif);font-weight:400;margin:0}.muted{color:var(--muted);font-size:12px}.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}.card{display:flex;min-width:0;border:1px solid #caa7b2;border-radius:2px;padding:12px;flex-direction:column;text-align:center;background:white}.card:hover{border-color:var(--accent)}.card-photo{height:265px;display:grid;place-items:center;margin-bottom:14px;overflow:hidden}.card-photo img{width:100%;height:100%;object-fit:contain}.no-photo{font:13px var(--serif);color:var(--muted)}.card-brand{font-weight:bold;font-size:13px;margin:0 0 1px}.card-name{font:17px/1.4 var(--serif);margin:0;min-height:48px}.card-volume{font-size:12px;color:var(--muted);margin:7px 0 3px}.card-price{font:19px var(--serif);margin:0 0 14px}.outline-button{display:block;border:1px solid var(--accent);color:var(--accent);min-height:44px;padding:10px 8px;font:14px/22px var(--serif);margin-top:auto}.card:hover .outline-button{background:var(--accent);color:white}.pagination{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:28px 0 6px}.pagination a{min-width:44px;min-height:44px;display:grid;place-items:center;border:1px solid var(--line)}.pagination [aria-current]{border-color:var(--accent);background:var(--accent);color:white}.page-caption{text-align:center;color:var(--muted);font-size:12px;margin:8px 0 32px}.footer{border-top:1px solid var(--line);margin-top:36px;padding:26px 0 60px;text-align:center}.footer nav{display:flex;justify-content:center;gap:26px;flex-wrap:wrap;font:14px var(--serif)}.footer nav a{padding:9px 0}.footer small{display:block;margin-top:20px;color:var(--muted);font-size:10px;letter-spacing:1px}.manager{position:fixed;right:20px;bottom:max(20px,env(safe-area-inset-bottom));width:52px;height:52px;border-radius:50%;background:var(--accent);color:white;display:grid;place-items:center;box-shadow:0 3px 13px #7a30452b;z-index:4}.manager .icon{width:27px;height:27px}.breadcrumb{display:inline-block;margin:25px 0;color:var(--accent);font-size:12px;min-height:32px}.detail{display:grid;grid-template-columns:1.1fr 1fr;gap:48px;margin:10px 0 46px}.gallery{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;align-self:start;border:1px solid var(--line);scrollbar-width:thin}.gallery figure{flex:0 0 100%;min-width:0;margin:0;padding:20px;scroll-snap-align:start}.gallery img{width:100%;height:450px;object-fit:contain;display:block}.gallery figcaption{text-align:center;color:var(--muted);font-size:11px;padding-top:12px}.detail h1{font:38px/1.2 var(--serif);font-weight:400;margin:6px 0 18px}.detail .eyebrow{margin-bottom:7px}.facts{display:flex;gap:7px 20px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:24px}.facts div{font-size:12px}.facts dt{color:var(--muted);display:inline}.facts dt:after{content:': '}.facts dd{display:inline;margin:0}.variants{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}.variants th{text-align:left;font-weight:400;color:var(--muted);font-size:12px}.variants th,.variants td{padding:13px 0;border-bottom:1px solid var(--line)}.variants th:last-child,.variants td:last-child{text-align:right}.variants td:last-child{font:24px var(--serif);color:var(--accent)}.description{line-height:1.85;font-size:14px}.detail h2{font:24px var(--serif);font-weight:400;margin:28px 0 12px}.notes div{margin-bottom:16px}.notes dt{font-size:11px;letter-spacing:.5px;color:var(--muted)}.notes dd{margin:3px 0 0;font-size:14px}.info,.error{max-width:650px;margin:55px auto 100px;min-height:40vh}.info h1,.error h1{font:38px var(--serif);font-weight:400}.empty{padding:50px 20px;background:var(--wash);text-align:center}.empty a{text-decoration:underline;color:var(--accent)}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:900px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.card-photo{height:240px}.detail{gap:28px}.gallery img{height:350px}}@media(max-width:600px){.wrap{width:calc(100% - 28px)}.header{height:76px;grid-template-columns:54px 1fr 54px}.wordmark{font-size:20px;letter-spacing:1px}.header-contact{font-size:11px}.hero{padding:28px 0 22px}.hero h1{font-size:30px;line-height:1.2}.hero p:last-child{font-size:12px;margin-top:12px}.brand-tabs{gap:25px;margin-bottom:20px}.brand-tabs a{font-size:14px}.catalog-title h2{font-size:20px}.catalog-title .muted{font-size:11px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.card{padding:9px 8px}.card-photo{height:200px;margin-bottom:10px}.card-brand{font-size:12px}.card-name{font-size:15px;min-height:44px}.card-price{font-size:18px;margin-bottom:10px}.card-volume{font-size:11px}.outline-button{font-size:13px}.footer nav{gap:8px 22px;font-size:13px}.footer{padding-bottom:90px}.manager{right:16px;bottom:20px}.detail{grid-template-columns:1fr;gap:26px;margin-top:0}.gallery img{height:330px}.gallery figure{padding:16px}.detail h1{font-size:32px}.breadcrumb{margin:18px 0}.facts{margin-bottom:15px}.detail h2{font-size:23px}.info{margin-top:35px}}@media(max-width:360px){.card-photo{height:165px}.card-name{font-size:14px}.wordmark{font-size:18px}.hero h1{font-size:27px}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+/* Homepage: compact introductions and native, swipeable carousels. */
+.primary-button{display:inline-flex;align-items:center;justify-content:center;gap:26px;min-height:46px;background:var(--accent);color:white;padding:11px 24px;font:15px/24px var(--serif);margin-top:24px}.primary-button:hover{background:#632236}.home-hero{padding-bottom:44px}.hero .primary-button:last-child{color:white;margin-top:24px}.home-brands{padding:20px 0 28px;border-top:1px solid var(--line);margin-bottom:22px}.section-heading{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:20px}.section-heading h2{font:27px/1.2 var(--serif);font-weight:400;margin:0}.section-heading .eyebrow{margin-bottom:9px;font-size:9px;letter-spacing:1.5px}.text-link{flex:none;font-size:12px;color:var(--accent);min-height:30px;padding-top:5px}.brand-carousel{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin;padding:2px 1px 12px}.brand-tile{flex:0 0 170px;min-width:0;min-height:115px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;padding:20px 12px;scroll-snap-align:start;background:#fff}.brand-tile:hover{border-color:var(--accent);background:var(--wash)}.brand-wordmark{font:21px/1.2 var(--serif);text-align:center}.brand-tile small{font-size:10px;color:var(--muted)}.brand-tom-ford .brand-wordmark{font:bold 19px Arial,sans-serif;letter-spacing:2px;text-transform:uppercase}.brand-dior .brand-wordmark{font-size:32px}.brand-chanel .brand-wordmark{font:bold 20px Arial,sans-serif;letter-spacing:3px;text-transform:uppercase}.brand-creed .brand-wordmark{font-size:26px;letter-spacing:3px;text-transform:uppercase}.brand-gucci .brand-wordmark{font-size:27px;letter-spacing:4px;text-transform:uppercase}.brand-louis-vuitton .brand-wordmark{font-size:19px;text-transform:uppercase;letter-spacing:1px}.brand-yves-saint-laurent .brand-wordmark{font:15px/1.4 Arial,sans-serif;text-transform:uppercase;letter-spacing:1px}.swipe-hint{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin:6px 0 0;letter-spacing:.2px}.feature-track{display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:thin;padding:1px 1px 14px}.feature-track:focus-visible{outline:2px solid var(--accent);outline-offset:5px}.feature-track .card{flex:0 0 248px;scroll-snap-align:start}.feature-track .card-photo{height:230px}.all-catalog{max-width:370px;margin:25px auto 10px;text-align:center}.home-featured{padding-bottom:12px}@media(max-width:600px){.home-hero{padding-top:30px;padding-bottom:30px}.hero .primary-button:last-child{font-size:14px}.home-brands{padding-top:25px;margin-bottom:24px;padding-bottom:20px}.section-heading{gap:12px;margin-bottom:16px}.section-heading h2{font-size:23px}.section-heading .eyebrow{font-size:8px;letter-spacing:1px;max-width:230px;line-height:1.5}.text-link{font-size:11px;white-space:nowrap}.brand-tile{flex-basis:145px;min-height:104px;padding:16px 10px}.brand-carousel{gap:10px}.brand-wordmark{font-size:20px}.feature-track{gap:12px}.feature-track .card{flex-basis:min(68vw,270px);padding:12px}.feature-track .card-photo{height:220px}.feature-track .card-name{font-size:17px;min-height:48px}.feature-track .card-brand{font-size:13px}.feature-track .card-price{font-size:20px}.all-catalog{margin-top:22px}.home-featured .swipe-hint{margin-top:8px}}@media(prefers-reduced-motion:reduce){.brand-carousel,.feature-track{scroll-behavior:auto}}
+.home-hero>p:not(.eyebrow){font:14px/1.6 var(--serif);color:var(--muted);margin:14px 0 0}@media(max-width:600px){.home-hero>p:not(.eyebrow){font-size:13px}}
 </style>
 </head>
 <body>
 <a class="skip" href="#main">Перейти к содержимому</a>
 <header class="header wrap">
 <details class="menu"><summary aria-label="Открыть меню"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></summary>
-<nav aria-label="Основное меню"><a href="/">Коллекция</a><?php foreach ($staticPages as $url=>$label): ?><a href="<?= e($url) ?>"><?= e($label) ?></a><?php endforeach; ?></nav></details>
+<nav aria-label="Основное меню"><a href="/">Главная</a><a href="/catalog.html">Каталог</a><?php foreach ($staticPages as $url=>$label): ?><a href="<?= e($url) ?>"><?= e($label) ?></a><?php endforeach; ?></nav></details>
 <a class="wordmark" href="/" aria-label="PARFUM PLACE — главная">PARFUM PLACE</a>
 <a class="header-contact" href="/contacts.html">Контакты</a>
 </header>
 <main id="main" class="wrap">
 <?php if ($message !== null): ?>
-<section class="error"><p class="eyebrow">PARFUM PLACE</p><h1><?= e($message) ?></h1><a class="outline-button" href="/">Вернуться в коллекцию</a></section>
+<section class="error"><p class="eyebrow">PARFUM PLACE</p><h1><?= e($message) ?></h1><a class="outline-button" href="/catalog.html">Вернуться в коллекцию</a></section>
 <?php elseif ($staticPage !== null): ?>
-<section class="info"><a class="breadcrumb" href="/">← В коллекцию</a><h1><?= e($staticPage) ?></h1><p class="muted">Информация скоро появится.</p></section>
+<section class="info"><a class="breadcrumb" href="/catalog.html">← В коллекцию</a><h1><?= e($staticPage) ?></h1><p class="muted">Информация скоро появится.</p></section>
 <?php elseif ($product !== null): $b=$brands[$product['brand_id']]; $images=productImages($product['sku'],(int)$product['id']); ?>
 <!-- Актуальный каталог из MySQL. -->
 <a class="breadcrumb" href="<?= e(linkTo(['brand'=>$b['slug']])) ?>">← Все ароматы <?= e($b['name']) ?></a>
@@ -306,13 +347,22 @@ function productImages(string $sku, ?int $productId = null): array
 </div></article>
 <?php else: ?>
 <!-- Актуальный каталог из MySQL. -->
-<section class="hero"><p class="eyebrow">Коллекция PARFUM PLACE</p>
+<section class="hero <?= $isHome ? 'home-hero' : '' ?>"><p class="eyebrow">Коллекция PARFUM PLACE</p>
 <?php if ($currentBrand !== null): ?><h1><?= e($currentBrand['name']) ?></h1><p>Найдите свой аромат в коллекции бренда</p>
-<?php else: ?><h1>Ароматы,<br>которые говорят о вас</h1><p>Парфюмерия мировых брендов</p><?php endif; ?></section>
-<nav class="brand-tabs" aria-label="Бренды"><a href="/" <?= $brand==='' ? 'aria-current="page"' : '' ?>>Все бренды</a><?php foreach($brands as $b): ?><a data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>" <?= $brand===$b['slug'] ? 'aria-current="page"' : '' ?>><?= e($b['name']) ?></a><?php endforeach; ?></nav>
-<section aria-labelledby="collection-title"><div class="catalog-title"><h2 id="collection-title">Коллекция ароматов</h2><span class="muted"><?= (int)$total ?> ароматов</span></div>
-<?php if (!$items): ?><div class="empty"><p>Ароматы не найдены.</p><a href="/">Вся коллекция</a></div><?php endif; ?>
-<div class="grid">
+<?php elseif ($isHome): ?><h1>Ароматы,<br>которые говорят о вас</h1><p>Знакомьтесь с парфюмерными домами.<br>Выбирайте своё звучание.</p><a class="primary-button" href="/catalog.html">Смотреть коллекцию <span aria-hidden="true">↗</span></a>
+<?php else: ?><h1>Коллекция ароматов</h1><p>Парфюмерия мировых брендов</p><?php endif; ?></section>
+<?php if ($isHome): ?>
+<section class="home-brands" aria-labelledby="brand-title"><div class="section-heading"><div><p class="eyebrow">Знакомые имена. Разные характеры.</p><h2 id="brand-title">Парфюмерные дома</h2></div><a class="text-link" href="/catalog.html">Все бренды ↗</a></div>
+<nav class="brand-carousel" aria-label="Лента брендов">
+<?php foreach($brands as $b): if($b['slug']==='prochie') { continue; } ?><a class="brand-tile brand-<?= e($b['slug']) ?>" data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>"><span class="brand-wordmark"><?= e($b['name']) ?></span><small><?= e(aromaCount((int)$b['product_count'])) ?></small></a><?php endforeach; ?>
+</nav><p class="swipe-hint">Листайте, чтобы увидеть все бренды <span aria-hidden="true">→</span></p>
+</section>
+<?php else: ?>
+<nav class="brand-tabs" aria-label="Бренды"><a href="/catalog.html" <?= $brand==='' ? 'aria-current="page"' : '' ?>>Все бренды</a><?php foreach($brands as $b): ?><a data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>" <?= $brand===$b['slug'] ? 'aria-current="page"' : '' ?>><?= e($b['name']) ?></a><?php endforeach; ?></nav>
+<?php endif; ?>
+<section class="<?= $isHome ? 'home-featured' : 'catalog-section' ?>" aria-labelledby="collection-title"><div class="section-heading"><div><?php if($isHome): ?><p class="eyebrow">Десять ароматов из нашей коллекции</p><?php endif; ?><h2 id="collection-title"><?= $isHome ? 'В центре внимания' : 'Коллекция ароматов' ?></h2></div><?php if(!$isHome): ?><span class="muted"><?= e(aromaCount((int)$total)) ?></span><?php endif; ?></div>
+<?php if (!$items): ?><div class="empty"><p>Ароматы не найдены.</p><a href="/catalog.html">Вся коллекция</a></div><?php endif; ?>
+<div class="<?= $isHome ? 'feature-track' : 'grid' ?>"<?= $isHome ? ' tabindex="0" role="region" aria-label="Подборка ароматов — листайте горизонтально"' : '' ?>>
 <?php foreach($items as $cardIndex=>$p): $photos=productImages($p['sku'],(int)$p['id']); ?>
 <a class="card" data-product-link href="<?= e(productUrl($p['sku'],$p['brand_slug'])) ?>">
 <div class="card-photo"><?php if($photos): ?><img src="<?= e($photos[0]) ?>" alt="<?= e($brands[$p['brand_id']]['name'].' '.$p['name']) ?>" width="320" height="320" loading="<?= $cardIndex<2 ? 'eager' : 'lazy' ?>"><?php else: ?><span class="no-photo">Фото скоро появится</span><?php endif; ?></div>
@@ -320,8 +370,11 @@ function productImages(string $sku, ?int $productId = null): array
 <p class="card-volume"><?= e(str_replace(',',', ',$p['volumes'] ?? '')) ?> мл</p><p class="card-price"><?= e(money($p['min_price'])) ?></p><span class="outline-button">Подробнее</span>
 </a><?php endforeach; ?>
 </div>
+<?php if($isHome): ?><p class="swipe-hint">Листайте подборку <span aria-hidden="true">→</span></p><div class="all-catalog"><a class="outline-button" href="/catalog.html">Весь каталог · <?= e(aromaCount((int)$total)) ?> <span aria-hidden="true">↗</span></a></div>
+<?php else: ?>
 <nav class="pagination" aria-label="Страницы каталога"><?php for($i=1;$i<=$pages;$i++): ?><a href="<?= e(linkTo(['brand'=>$brand,'q'=>$query,'page'=>$i])) ?>" <?= $page===$i?'aria-current="page"':'' ?> aria-label="Страница <?= $i ?>"><?= $i ?></a><?php endfor; ?></nav>
 <p class="page-caption">Найдено: <?= (int)$total ?>. Страница <?= (int)$page ?> из <?= (int)$pages ?>.</p>
+<?php endif; ?>
 </section>
 <?php endif; ?>
 </main>

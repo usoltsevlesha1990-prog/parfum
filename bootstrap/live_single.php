@@ -19,7 +19,7 @@ function linkTo(array $parameters = []): string
     unset($parameters['brand']);
     if (($parameters['page'] ?? null) == 1) { unset($parameters['page']); }
     if (($parameters['q'] ?? null) === '') { unset($parameters['q']); }
-    $path = $brand !== '' ? '/' . rawurlencode($brand) . '/' : '/';
+    $path = $brand !== '' ? '/' . rawurlencode($brand) . '/' : '/catalog.html';
     return $path . ($parameters ? '?' . http_build_query($parameters) : '');
 }
 function productUrl(string $sku, string $brandSlug): string
@@ -29,6 +29,13 @@ function productUrl(string $sku, string $brandSlug): string
         $name = substr($name, strlen($brandSlug) + 1);
     }
     return '/' . rawurlencode($brandSlug) . '/' . rawurlencode($name) . '.html';
+}
+function homepageProductIds(): array { return __FEATURED_IDS__; }
+function aromaCount(int $count): string
+{
+    $tail=$count%100;
+    $word=($tail>=11 && $tail<=14) ? 'ароматов' : ($count%10===1 ? 'аромат' : (in_array($count%10,[2,3,4],true) ? 'аромата' : 'ароматов'));
+    return $count.' '.$word;
 }
 final class CatalogRepository
 {
@@ -57,6 +64,28 @@ final class CatalogRepository
         return $this->db->query('SELECT b.id, b.slug, b.name, COUNT(p.id) AS product_count FROM brands b LEFT JOIN products p ON p.brand_id=b.id AND ' . $this->eligible() . ' GROUP BY b.id,b.slug,b.name,b.sort_order ORDER BY b.sort_order,b.name')->fetchAll();
     }
 
+    private function cardsQuery(): string
+    {
+        return 'SELECT p.*,b.name AS brand_name,b.slug AS brand_slug,prices.min_price,prices.volumes FROM products p JOIN brands b ON b.id=p.brand_id LEFT JOIN (SELECT product_id,MIN(' . self::PRICE . ') AS min_price,GROUP_CONCAT(volume_ml ORDER BY volume_ml) AS volumes FROM product_prices WHERE price>0 AND volume_ml IN (' . $this->volumes . ') GROUP BY product_id) prices ON prices.product_id=p.id';
+    }
+
+    public function featured(array $ids): array
+    {
+        if (!$ids || count($ids)>10 || array_filter($ids,static fn($id)=>!is_int($id)||$id<=0)) { throw new RuntimeException('Invalid homepage product IDs'); }
+        $statement=$this->db->prepare($this->cardsQuery().' WHERE '.$this->eligible().' AND p.id IN ('.implode(',',array_fill(0,count($ids),'?')).')');
+        $statement->execute($ids);
+        $rows=[];
+        foreach ($statement->fetchAll() as $row) { $rows[(int)$row['id']]=$row; }
+        $ordered=[];
+        foreach ($ids as $id) { if (isset($rows[$id])) { $ordered[]=$rows[$id]; } }
+        return $ordered;
+    }
+
+    public function countProducts(): int
+    {
+        return (int)$this->db->query('SELECT COUNT(*) FROM products p JOIN brands b ON b.id=p.brand_id WHERE '.$this->eligible())->fetchColumn();
+    }
+
     public function search(string $query, string $brand, int $page): array
     {
         $where = [$this->eligible()]; $args = [];
@@ -72,7 +101,7 @@ final class CatalogRepository
         $total = (int) $count->fetchColumn();
         $pages = max(1, (int) ceil($total / 12));
         $page = min($page, $pages);
-        $sql = 'SELECT p.*,b.name AS brand_name,b.slug AS brand_slug,prices.min_price,prices.volumes FROM products p JOIN brands b ON b.id=p.brand_id LEFT JOIN (SELECT product_id,MIN(' . self::PRICE . ') AS min_price,GROUP_CONCAT(volume_ml ORDER BY volume_ml) AS volumes FROM product_prices WHERE price>0 AND volume_ml IN (' . $this->volumes . ') GROUP BY product_id) prices ON prices.product_id=p.id' . $filter . ' ORDER BY b.sort_order,p.sort_order,p.id LIMIT 12 OFFSET ' . (($page - 1) * 12);
+        $sql = $this->cardsQuery() . $filter . ' ORDER BY b.sort_order,p.sort_order,p.id LIMIT 12 OFFSET ' . (($page - 1) * 12);
         $stmt = $this->db->prepare($sql); $stmt->execute($args);
         return ['items' => $stmt->fetchAll(), 'total' => $total, 'page' => $page, 'pages' => $pages];
     }
@@ -123,7 +152,7 @@ function database(): PDO {
     return $pdo;
 }
 $staticPages=['/about.html'=>'О нас','/delivery.html'=>'Доставка','/payment.html'=>'Оплата','/contacts.html'=>'Контакты'];
-$staticPage=null;
+$staticPage=null; $isHome=false;
 $currentBrand=null; $message=null; $product=null; $query=''; $brand=''; $page=1; $brands=[]; $prices=[]; $items=[]; $total=0; $pages=1;
 try {
     if (!in_array($_SERVER['REQUEST_METHOD'],['GET','HEAD'],true)) { header('Allow: GET, HEAD'); http_response_code(405); $message='Метод не поддерживается'; }
@@ -135,9 +164,14 @@ try {
         if (strlen($query)>480 || preg_match('//u',$query)!==1 || strlen($brand)>60 || !preg_match('/^[a-zA-Z0-9_-]*$/D',$brand) || strlen($sku)>150 || !preg_match('/^[a-zA-Z0-9_-]*$/D',$sku) || !preg_match('/^[1-9][0-9]{0,5}$/D',$rawPage)) { throw new InvalidArgumentException(); }
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         $route = [];
-        if (!is_string($path) || (!in_array($path, ['/', '/index.php'], true) && !isset($staticPages[$path]) && !preg_match('~^/([a-z0-9-]+)(?:/([a-z0-9-]+)(?:\.html)?)?/?$~D', $path, $route))) {
+        if (!is_string($path) || (!in_array($path, ['/', '/index.php', '/catalog.html'], true) && !isset($staticPages[$path]) && !preg_match('~^/([a-z0-9-]+)(?:/([a-z0-9-]+)(?:\.html)?)?/?$~D', $path, $route))) {
             http_response_code(404); $message='Страница не найдена';
         }
+        $isHome=in_array($path,['/','/index.php'],true) && $brand==='' && $sku==='' && !isset($_GET['page']) && $query==='';
+        if (in_array($path,['/','/index.php'],true) && $brand==='' && $sku==='' && !$isHome) {
+            http_response_code(301); header('Location: '.linkTo(['page'=>(int)$rawPage,'q'=>$query])); exit;
+        }
+        if ($isHome && $path==='/index.php') { http_response_code(301); header('Location: /'); exit; }
         $staticPage=$staticPages[$path] ?? null;
         if ($staticPage === null) {
         $repo=new CatalogRepository(database());
@@ -161,13 +195,17 @@ try {
                     http_response_code(301); header('Location: ' . linkTo(['brand'=>$brand,'q'=>$query,'page'=>(int)$rawPage])); exit;
                 }
             }
-            $catalog=$repo->search($query,$brand,(int)$rawPage);
-            $items=$catalog['items']; $total=$catalog['total']; $page=$catalog['page']; $pages=$catalog['pages'];
+            if ($isHome) {
+                $items=$repo->featured(homepageProductIds()); $total=$repo->countProducts();
+            } else {
+                $catalog=$repo->search($query,$brand,(int)$rawPage);
+                $items=$catalog['items']; $total=$catalog['total']; $page=$catalog['page']; $pages=$catalog['pages'];
+            }
         }
         }
     }
 } catch (InvalidArgumentException $error) { http_response_code(400); $message='Некорректные параметры'; }
 catch (Throwable $error) { http_response_code(503); header('X-Catalog-Error: ' . ($error instanceof PDOException ? 'MYSQL-' . (int) ($error->errorInfo[1] ?? 0) : (str_contains($error->getMessage(), 'Missing database config') ? 'CONFIG-MISSING' : 'CONFIG-ERROR'))); error_log('PARFUM PLACE MySQL request failed: '.get_class($error)); $message='Каталог временно недоступен. Проверьте подключение к MySQL.'; }
-$title=$staticPage ?? ($product ? $brands[$product['brand_id']]['name'].' — '.$product['name'] : ($currentBrand['name'] ?? 'Каталог ароматов'));
+$title=$staticPage ?? ($product ? $brands[$product['brand_id']]['name'].' — '.$product['name'] : ($currentBrand['name'] ?? ($isHome ? 'Парфюмерия мировых брендов' : 'Каталог ароматов')));
 if ($_SERVER['REQUEST_METHOD']==='HEAD') { exit; }
 ?>

@@ -20,7 +20,7 @@ class Links(HTMLParser):
 def catalog_routes():
     routes=set();pages=None;total=None
     for number in range(1,1001):
-        with urllib.request.urlopen('https://parfumplace.ru/index.php?page='+str(number),timeout=30) as response:
+        with urllib.request.urlopen('https://parfumplace.ru/catalog.html?page='+str(number),timeout=30) as response:
             text=response.read().decode()
         if pages is None:
             count=re.search(r'Страница\s+1\s+из\s+(\d+)',text)
@@ -50,50 +50,54 @@ def ensure_index(sftp,directory,target):
     else:
         if not stat.S_ISLNK(attributes.st_mode) or sftp.readlink(entry)!=target:raise ValueError('Existing route entry is not our link; refusing to overwrite')
 
-def publish(key,known_hosts):
-    import paramiko
-    routes=catalog_routes()
-    with urllib.request.urlopen('https://parfumplace.ru/',timeout=30) as response:
-        parser=Links();parser.feed(response.read().decode())
-    brand_routes=set(parser.brands)
-    if not brand_routes or any(not re.fullmatch(r'/[a-z0-9-]+/',path) or path.strip('/') in {'pict','products_pictures','private','assets'} for path in brand_routes):raise ValueError('Unexpected brand routes')
-    client=paramiko.SSHClient();client.load_host_keys(known_hosts);client.set_missing_host_key_policy(paramiko.RejectPolicy())
-    client.connect('212.113.99.234',port=22,username='parfumplace',key_filename=key,look_for_keys=False,allow_agent=False,timeout=20)
+def install_rewrites(sftp):
+    # .html URLs are internally rewritten to PHP; never expose PHP as static HTML.
+    entry=ROOT+'/.htaccess'
     try:
-        with client.open_sftp() as sftp:
-            if sftp.normalize(ROOT)!=ROOT:raise ValueError('Unexpected public root')
-            for route in sorted(brand_routes):
-                directory=posixpath.join(ROOT,route.strip('/'))
-                ensure_directory(sftp,directory);ensure_index(sftp,directory,'../index.php')
-            # .html URLs are internally rewritten to PHP; never expose PHP as static HTML.
-            entry=ROOT+'/.htaccess'
-            try:
-                attributes=sftp.lstat(entry)
-                if not stat.S_ISREG(attributes.st_mode):raise ValueError('Refusing to replace non-regular .htaccess')
-                with sftp.open(entry,'rb') as handle:previous=handle.read(65537)
-                if len(previous)>65536:raise ValueError('Unexpectedly large .htaccess')
-            except FileNotFoundError:previous=b''
-            block=br"""# BEGIN PARFUM PLACE PRODUCT URLS
+        attributes=sftp.lstat(entry)
+        if not stat.S_ISREG(attributes.st_mode):raise ValueError('Refusing to replace non-regular .htaccess')
+        with sftp.open(entry,'rb') as handle:previous=handle.read(65537)
+        if len(previous)>65536:raise ValueError('Unexpectedly large .htaccess')
+    except FileNotFoundError:previous=b''
+    block=br"""# BEGIN PARFUM PLACE PRODUCT URLS
 <IfModule mod_rewrite.c>
 RewriteEngine On
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^([a-z0-9-]+)/([a-z0-9-]+)\.html$ /index.php [END,QSA]
-RewriteRule ^(about|delivery|payment|contacts)\.html$ /index.php [END,QSA]
+RewriteRule ^(about|delivery|payment|contacts|catalog)\.html$ /index.php [END,QSA]
 </IfModule>
 # END PARFUM PLACE PRODUCT URLS
 """
-            remaining=re.sub(rb'# BEGIN PARFUM PLACE PRODUCT URLS.*?# END PARFUM PLACE PRODUCT URLS\r?\n?',b'',previous,flags=re.S)
-            updated=block+remaining
-            if updated!=previous:
-                if previous:
-                    backup='/home/parfumplace/web/parfumplace.ru/private/htaccess-before-html-'+secrets.token_hex(8)
-                    with sftp.open(backup,'wb') as handle:handle.write(previous)
-                    sftp.chmod(backup,0o600)
-                temporary=entry+'.'+secrets.token_hex(8)+'.tmp'
-                with sftp.open(temporary,'wb') as handle:handle.write(updated)
-                sftp.chmod(temporary,0o644)
-                sftp.posix_rename(temporary,entry)
+    remaining=re.sub(rb'# BEGIN PARFUM PLACE PRODUCT URLS.*?# END PARFUM PLACE PRODUCT URLS\r?\n?',b'',previous,flags=re.S)
+    updated=block+remaining
+    if updated!=previous:
+        if previous:
+            backup='/home/parfumplace/web/parfumplace.ru/private/htaccess-before-html-'+secrets.token_hex(8)
+            with sftp.open(backup,'wb') as handle:handle.write(previous)
+            sftp.chmod(backup,0o600)
+        temporary=entry+'.'+secrets.token_hex(8)+'.tmp'
+        with sftp.open(temporary,'wb') as handle:handle.write(updated)
+        sftp.chmod(temporary,0o644)
+        sftp.posix_rename(temporary,entry)
+
+def publish(key,known_hosts):
+    import paramiko
+    client=paramiko.SSHClient();client.load_host_keys(known_hosts);client.set_missing_host_key_policy(paramiko.RejectPolicy())
+    client.connect('212.113.99.234',port=22,username='parfumplace',key_filename=key,look_for_keys=False,allow_agent=False,timeout=20)
+    try:
+        with client.open_sftp() as sftp:
+            if sftp.normalize(ROOT)!=ROOT:raise ValueError('Unexpected public root')
+            # Install catalog.html before trying to read the newly separated catalog.
+            install_rewrites(sftp)
+            routes=catalog_routes()
+            with urllib.request.urlopen('https://parfumplace.ru/catalog.html',timeout=30) as response:
+                parser=Links();parser.feed(response.read().decode())
+            brand_routes=set(parser.brands)
+            if not brand_routes or any(not re.fullmatch(r'/[a-z0-9-]+/',path) or path.strip('/') in {'pict','products_pictures','private','assets'} for path in brand_routes):raise ValueError('Unexpected brand routes')
+            for route in sorted(brand_routes):
+                directory=posixpath.join(ROOT,route.strip('/'))
+                ensure_directory(sftp,directory);ensure_index(sftp,directory,'../index.php')
     finally:client.close()
     print(f'Canonical routes published: {len(routes)} product and {len(brand_routes)} brand pages; all share the root index.php')
 

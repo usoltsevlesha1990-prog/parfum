@@ -52,18 +52,34 @@ class SinglePhpTests(unittest.TestCase):
             cls.server.terminate();cls.server.wait();raise
     @classmethod
     def tearDownClass(cls): cls.server.terminate();cls.server.wait();cls.images.cleanup();cls.pict.cleanup()
-    def get(self,path='index.php'):
+    def get(self,path='catalog.html'):
         try: r=urllib.request.urlopen(self.base+path.lstrip('/'),timeout=5)
         except urllib.error.HTTPError as error:r=error
         with r:return r.status,r.read().decode()
+    def test_homepage_has_curated_carousels(self):
+        status,body=self.get('/')
+        self.assertEqual(status,200)
+        self.assertEqual(body.count('data-product-link'),10)
+        self.assertIn('class="brand-carousel"',body)
+        self.assertIn('class="feature-track"',body)
+        self.assertNotIn('class="pagination"',body)
+        self.assertNotIn('class="grid"',body)
+        self.assertNotIn('<form',body)
+        self.assertIn('В центре внимания',body)
+        self.assertNotIn('Самые покупаемые',body)
+        links=re.findall(r'data-product-link href="([^"]+)"',body)
+        self.assertEqual(len(set(links)),10)
+        self.assertGreaterEqual(len({link.split('/')[1] for link in links}),6)
+        self.assertIn('href="/catalog.html"',body)
+
     def test_catalog(self):
         status,body=self.get();self.assertEqual(status,200);self.assertEqual(body.count('data-product-link'),12)
         self.assertIn('--accent:#7a3045',body);self.assertNotIn('<script',body);self.assertNotIn('<form',body);self.assertNotIn('name="q"',body)
-        self.assertEqual(self.get('index.php?page=6')[1].count('data-product-link'),3)
+        self.assertEqual(self.get('catalog.html?page=6')[1].count('data-product-link'),3)
     def test_all_product_links(self):
         found=set()
         for page in range(1,7):
-            status,body=self.get(f'index.php?page={page}');self.assertEqual(status,200)
+            status,body=self.get(f'catalog.html?page={page}');self.assertEqual(status,200)
             for link in re.findall('data-product-link href="([^"]+)"',body):
                 found.add(link);status,product=self.get(html.unescape(link));self.assertEqual(status,200)
                 self.assertIn('Описание',product);self.assertIn('Верхние ноты',product)
