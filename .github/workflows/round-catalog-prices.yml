@@ -1,0 +1,63 @@
+name: Round catalog prices down to 10 rubles
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/round-catalog-prices.yml'
+permissions:
+  contents: read
+concurrency:
+  group: parfumplace-catalog-review
+  cancel-in-progress: false
+jobs:
+  clean:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Validate price rounding
+        run: |
+          php -l tools/round_catalog_prices.php
+      - name: Install deployment key and verify server identity
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_SSH_KEY" || { echo 'Missing DEPLOY_SSH_KEY repository secret'; exit 1; }
+          umask 077
+          mkdir -p "$HOME/.ssh"
+          python3 - <<'PYKEY'
+          import os, pathlib, re
+          value = os.environ['DEPLOY_SSH_KEY'].replace('\r', '').replace('\\n', '\n')
+          match = re.search(r'-----BEGIN OPENSSH PRIVATE KEY-----.*?-----END OPENSSH PRIVATE KEY-----', value, re.S)
+          if not match:
+              raise SystemExit('::error::DEPLOY_SSH_KEY must contain the complete PRIVATE key, including BEGIN and END lines. Update this repository secret; do not paste the key into chat.')
+          key = '\n'.join(line.strip() for line in match[0].splitlines()) + '\n'
+          pathlib.Path(os.environ['HOME'], '.ssh', 'parfumplace_deploy').write_text(key)
+          PYKEY
+          if ! ssh-keygen -y -f "$HOME/.ssh/parfumplace_deploy" > /dev/null; then
+            echo '::error::GitHub cannot read DEPLOY_SSH_KEY. Save the complete unencrypted private key from /root/parfumplace_deploy.'
+            exit 1
+          fi
+          ssh-keyscan -T 15 -p 22 -t ed25519 212.113.99.234 > "$RUNNER_TEMP/host-key"
+          test "$(ssh-keygen -lf "$RUNNER_TEMP/host-key" -E sha256 | awk '{print $2}')" = 'SHA256:A3zj4MdiiGuCl2TK9enHX8q7QV7nQ/uL6W2pnNY+gZA'
+          cp "$RUNNER_TEMP/host-key" "$HOME/.ssh/known_hosts"
+      - name: Round authorized catalog prices with private backup
+        run: |
+          python3 -m pip install --disable-pip-version-check paramiko==4.0.0
+          python3 tools/run_price_rounding.py "$HOME/.ssh/parfumplace_deploy" "$HOME/.ssh/known_hosts"
+      - name: Verify public catalog
+        run: |
+          python3 - <<'PYVERIFY'
+          import urllib.request
+          for path in ['', 'index.php?sku=louis-vuitton-ombre-nomade']:
+              with urllib.request.urlopen('https://parfumplace.ru/'+path,timeout=20) as response:
+                  body=response.read().decode()
+                  assert response.status==200 and 'Актуальный каталог из MySQL.' in body
+          print('Public catalog and product page verified')
+          PYVERIFY
+      - name: Remove private key
+        if: always()
+        run: rm -f "$HOME/.ssh/parfumplace_deploy"
