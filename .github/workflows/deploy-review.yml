@@ -113,6 +113,13 @@ jobs:
             exit 1
           fi
           python3 tools/reorganize_images.py verify "$RUNNER_TEMP/pict-migration"
+      - name: Delete retired products_pictures after verified migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check paramiko==4.0.0
+          python3 tools/remove_old_pictures.py "$HOME/.ssh/parfumplace_deploy" "$HOME/.ssh/known_hosts" "$RUNNER_TEMP/pict-migration/manifest.json"
+          python3 tools/reorganize_images.py verify "$RUNNER_TEMP/pict-migration"
           rm -rf "$RUNNER_TEMP/pict-migration"
       - name: Remove historical HTML exports after successful PHP verification
         shell: bash
