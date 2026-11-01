@@ -81,10 +81,11 @@ jobs:
           ls /home/parfumplace/web/parfumplace.ru/private/database.php
           PREFLIGHT
           sftp -P 22 -i "$HOME/.ssh/parfumplace_deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -b "$RUNNER_TEMP/preflight.sftp" parfumplace@212.113.99.234
+          printf -- '-rename /home/parfumplace/web/parfumplace.ru/public_html/index.html /home/parfumplace/web/parfumplace.ru/private/index-before-root-%s.html\n' "$GITHUB_RUN_ID" > "$RUNNER_TEMP/root-backup.sftp"
+          sftp -P 22 -i "$HOME/.ssh/parfumplace_deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -b "$RUNNER_TEMP/root-backup.sftp" parfumplace@212.113.99.234
           cat > "$RUNNER_TEMP/upload.sftp" <<'SFTP'
-          -mkdir /home/parfumplace/web/parfumplace.ru/public_html/catalog-review
-          put review-site/index.php /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/index.php
-          ls /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/index.php
+          put review-site/index.php /home/parfumplace/web/parfumplace.ru/public_html/index.php
+          ls /home/parfumplace/web/parfumplace.ru/public_html/index.php
           SFTP
           sftp -P 22 -i "$HOME/.ssh/parfumplace_deploy" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
@@ -93,8 +94,8 @@ jobs:
         run: |
           python3 - <<'PY'
           import urllib.request
-          for page in ['index.php', 'index.php?page=2', 'index.php?sku=louis-vuitton-ombre-nomade']:
-              url = 'https://parfumplace.ru/catalog-review/' + page
+          for page in ['', 'index.php?page=2', 'index.php?sku=louis-vuitton-ombre-nomade']:
+              url = 'https://parfumplace.ru/' + page
               with urllib.request.urlopen(url, timeout=30) as response:
                   body = response.read().decode('utf-8')
                   assert response.status == 200 and 'PARFUM PLACE' in body, url
@@ -106,6 +107,7 @@ jobs:
           set -euo pipefail
           git show 19413b2:review-site/index.html > /dev/null
           git ls-tree -r --name-only 19413b2 review-site/ | python3 -c 'import sys,re; names=[line.strip().split("/")[-1] for line in sys.stdin]; assert all(re.fullmatch(r"[a-z0-9-]+\.html",n) for n in names); print("\n".join("-rm /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/"+n for n in names))' > "$RUNNER_TEMP/cleanup.sftp"
+          printf -- '-rm /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/index.php\nrmdir /home/parfumplace/web/parfumplace.ru/public_html/catalog-review\n' >> "$RUNNER_TEMP/cleanup.sftp"
           sftp -P 22 -i "$HOME/.ssh/parfumplace_deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -b "$RUNNER_TEMP/cleanup.sftp" parfumplace@212.113.99.234
       - name: Remove private key
         if: always()

@@ -74,7 +74,7 @@ final class CatalogRepository
 }
 
 function database(): PDO {
-    $configFile = getenv('PARFUM_DB_CONFIG') ?: dirname(__DIR__, 2) . '/private/database.php';
+    $configFile = getenv('PARFUM_DB_CONFIG') ?: dirname(__DIR__) . '/private/database.php';
     $config = [];
     if (is_file($configFile)) {
         $config = require $configFile;
