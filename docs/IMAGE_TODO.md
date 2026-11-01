@@ -35,3 +35,8 @@
 найти фото **флакона с коробкой**: ID 60 Tom Ford Fucking Fabulous Parfum,
 ID 62 Louis Vuitton Rhapsody, ID 63 Louis Vuitton Moon Tale.
 Подробный статус и правила выбора — в PHOTO_CONTENT_PLAN.md.
+
+По дополнительному поручению владельца сохранены и неидеальные пары/кадры:
+ID 31 Gucci Flora Gorgeous Gardenia (фон и версия), ID 8 Dior J’adore
+(объём на упаковке), ID 14 Tom Ford Noir Extreme (концентрация/версия).
+Подробности — PHOTO_CONTENT_PLAN.md, раздел «Отложенная доработка».
