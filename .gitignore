@@ -1,0 +1,62 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+/config/local.php
+/config/*.local.php
+/auth.json
+/.npmrc
+*.pem
+*.key
+*.p12
+*.pfx
+*.keystore
+/credentials.json
+/service-account*.json
+
+# Database exports and local databases (including compressed dumps)
+*.sql
+*.sql.*
+*.dump
+*.dump.*
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.sqlite-wal
+*.sqlite-shm
+
+# Dependencies; keep dependency manifests and lockfiles versioned
+/vendor/
+/node_modules/
+
+# Private runtime data: retain directory placeholders only
+/storage/**
+!/storage/**/
+!/storage/**/.gitkeep
+
+# Generated assets, reports and caches
+/public/build/
+/coverage/
+/.phpunit.cache/
+/.phpunit.result.cache
+.php-cs-fixer.cache
+*.log
+*.pid
+
+# Local backups and editor/OS files
+*.bak
+*.backup
+*.swp
+*~
+/.idea/
+/.vscode/
+.DS_Store
+Thumbs.db
+
+# Python helper/test bytecode
+__pycache__/
+*.py[cod]
+
+/parfumplace-catalog-review.zip
