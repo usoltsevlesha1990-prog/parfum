@@ -81,6 +81,10 @@ jobs:
           ssh-keyscan -T 15 -p 22 -t ed25519 212.113.99.234 > "$RUNNER_TEMP/host-key"
           test "$(ssh-keygen -lf "$RUNNER_TEMP/host-key" -E sha256 | awk '{print $2}')" = 'SHA256:A3zj4MdiiGuCl2TK9enHX8q7QV7nQ/uL6W2pnNY+gZA'
           cp "$RUNNER_TEMP/host-key" "$HOME/.ssh/known_hosts"
+      - name: Upload reviewed product photos before updating the page
+        run: |
+          python3 -m pip install --disable-pip-version-check paramiko==4.0.0
+          python3 tools/upload_curated_photos.py "$HOME/.ssh/parfumplace_deploy" "$HOME/.ssh/known_hosts"
       - name: Upload single PHP file over SFTP
         shell: bash
         run: |
