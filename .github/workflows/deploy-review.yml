@@ -40,6 +40,8 @@ jobs:
           fetch-depth: 0
       - name: Validate standalone catalog
         run: |
+          python3 -m pip install --disable-pip-version-check Pillow==12.0.0
+          python3 -m unittest discover -s tests/Unit -p 'test_*.py' -v
           php -l review-site/index.php
           php -r 'file_put_contents("/tmp/parfum-ci-database.php", "<?php return " . var_export(["host"=>"127.0.0.1","name"=>"parfum_place_dev","user"=>"root","password"=>getenv("DB_PASSWORD")], true) . ";");'
           php tools/import_mysql_catalog.php /tmp/parfum-ci-database.php
@@ -101,6 +103,17 @@ jobs:
                   assert response.status == 200 and 'PARFUM PLACE' in body, url
               print('Verified:', url)
           PY
+      - name: Reorganize matched photos into pict by database ID
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/reorganize_images.py prepare "$RUNNER_TEMP/pict-migration"
+          if ! sftp -P 22 -i "$HOME/.ssh/parfumplace_deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -b "$RUNNER_TEMP/pict-migration/upload.sftp" parfumplace@212.113.99.234 > "$RUNNER_TEMP/pict-upload.log" 2>&1; then
+            echo '::error::Photo upload failed; original images remain available. No source images were deleted.'
+            exit 1
+          fi
+          python3 tools/reorganize_images.py verify "$RUNNER_TEMP/pict-migration"
+          rm -rf "$RUNNER_TEMP/pict-migration"
       - name: Remove historical HTML exports after successful PHP verification
         shell: bash
         run: |

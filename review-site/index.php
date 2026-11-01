@@ -125,8 +125,23 @@ function imageKey(string $value): string
 }
 
 /** Match exact SKU folders or SKU filenames; ambiguous name guesses are excluded. */
-function productImages(string $sku): array
+function productImages(string $sku, ?int $productId = null): array
 {
+    $pictDirectory = getenv('PARFUM_PICT_DIRECTORY') ?: 'pict';
+    if ($productId !== null && $productId > 0 && preg_match('/^[a-zA-Z0-9_-]+$/D', $pictDirectory)) {
+        $base = __DIR__ . '/' . $pictDirectory;
+        $folder = $base . '/' . $productId;
+        if (!is_link($base) && !is_link($folder) && is_file($folder . '/.complete')) {
+            $photos = [];
+            foreach (glob($folder . '/*.jpg') ?: [] as $path) {
+                if (is_link($path) || !preg_match('/^[1-9][0-9]*-[a-f0-9]{16}\.jpg$/D', basename($path))) { continue; }
+                $info = @getimagesize($path);
+                if (($info['mime'] ?? '') === 'image/jpeg') { $photos[] = '/' . $pictDirectory . '/' . $productId . '/' . basename($path); }
+            }
+            natsort($photos);
+            if ($photos) { return array_values($photos); }
+        }
+    }
     $directory = getenv('PARFUM_IMAGE_DIRECTORY') ?: 'products_pictures';
     if (!preg_match('/^[a-zA-Z0-9_-]+$/D', $directory)) { return []; }
     $root = realpath(__DIR__ . '/' . $directory);
@@ -168,9 +183,9 @@ function productImages(string $sku): array
 <?php if ($message !== null): ?><h1><?= e($message) ?></h1>
 <?php elseif ($product !== null): $b = $brands[$product['brand_id']]; ?>
 <p><a href="<?= e(linkTo(['brand'=>$b['slug']])) ?>">← Все ароматы <?= e($b['name']) ?></a></p>
-<h1><?= e($b['name']) ?> — <?= e($product['name']) ?></h1>
+<h1 data-product-id="<?= (int) $product['id'] ?>"><?= e($b['name']) ?> — <?= e($product['name']) ?></h1>
 <dl><?php foreach (['sku'=>'Артикул','gender'=>'Для кого','fragrance_group'=>'Группа ароматов','release_year'=>'Год выпуска'] as $field=>$label): ?><dt><?= e($label) ?></dt><dd><?= e($product[$field] ?: 'Не указано') ?></dd><?php endforeach; ?></dl>
-<?php $images = productImages($product['sku']); ?>
+<?php $images = productImages($product['sku'], (int) $product['id']); ?>
 <?php if ($images): ?><h2>Фотографии</h2>
 <?php foreach ($images as $number => $url): ?>
 <p><a href="<?= e($url) ?>"><img src="<?= e($url) ?>" alt="<?= e($b['name'] . ' ' . $product['name'] . ' — фото ' . ($number + 1)) ?>" width="320" loading="lazy"></a></p>

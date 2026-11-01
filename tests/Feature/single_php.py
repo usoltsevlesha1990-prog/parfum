@@ -21,6 +21,7 @@ class SinglePhpTests(unittest.TestCase):
         with socket.socket() as s:
             s.bind(('127.0.0.1',0)); port=s.getsockname()[1]
         cls.base=f'http://127.0.0.1:{port}/'
+        cls.pict=tempfile.TemporaryDirectory(prefix='test-pict-',dir=ROOT/'review-site')
         cls.images=tempfile.TemporaryDirectory(prefix='test-images-',dir=ROOT/'review-site')
         folder=Path(cls.images.name)/'louis-vuitton-ombre-nomade'
         folder.mkdir()
@@ -30,7 +31,7 @@ class SinglePhpTests(unittest.TestCase):
         (Path(cls.images.name)/'louis-vuitton-ombre-nomade-parfum.png').write_bytes(png)
         (Path(cls.images.name)/'louis-vuitton-imagination.png').write_bytes(png)
         (folder/'link.png').symlink_to('/etc/passwd')
-        server_env=dict(os.environ,PARFUM_IMAGE_DIRECTORY=Path(cls.images.name).name)
+        server_env=dict(os.environ,PARFUM_IMAGE_DIRECTORY=Path(cls.images.name).name,PARFUM_PICT_DIRECTORY=Path(cls.pict.name).name)
         cls.server=subprocess.Popen([os.environ.get('PHP_BIN','php'),'-S',f'127.0.0.1:{port}','-t',str(ROOT/'review-site')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=server_env)
         try:
             for _ in range(40):
@@ -42,7 +43,7 @@ class SinglePhpTests(unittest.TestCase):
         except Exception:
             cls.server.terminate();cls.server.wait();raise
     @classmethod
-    def tearDownClass(cls): cls.server.terminate();cls.server.wait();cls.images.cleanup()
+    def tearDownClass(cls): cls.server.terminate();cls.server.wait();cls.images.cleanup();cls.pict.cleanup()
     def get(self,path='index.php'):
         try: r=urllib.request.urlopen(self.base+path,timeout=5)
         except urllib.error.HTTPError as error:r=error
@@ -70,6 +71,26 @@ class SinglePhpTests(unittest.TestCase):
         links=re.findall('href="(index.php\\?brand=[a-zA-Z0-9_-]+)"',body)
         self.assertEqual(len(links),9)
         for link in links:self.assertGreater(self.get(html.unescape(link))[1].count('data-product-link'),0)
+    def test_migrated_product_images(self):
+        import hashlib,json
+        products=json.loads((ROOT/'tests/fixtures/catalog.json').read_text())['products']
+        product=next(p for p in products if p['sku']=='louis-vuitton-ombre-nomade')
+        folder=Path(self.pict.name)/str(product['id']);folder.mkdir()
+        data=(ROOT/'tests/fixtures/pixel.jpg').read_bytes()
+        name='1-'+hashlib.sha256(data).hexdigest()[:16]+'.jpg'
+        photo=folder/name;photo.write_bytes(data)
+        marker=folder/'.complete'
+        try:
+            _,body=self.get('index.php?sku='+product['sku'])
+            self.assertIn('/louis-vuitton-ombre-nomade/1.png',body)
+            marker.write_text('complete')
+            _,body=self.get('index.php?sku='+product['sku'])
+            self.assertIn('/'+Path(self.pict.name).name+'/'+str(product['id'])+'/'+name,body)
+            self.assertNotIn('/louis-vuitton-ombre-nomade/1.png',body)
+            self.assertEqual(body.count('<img '),1)
+        finally:
+            marker.unlink(missing_ok=True);photo.unlink();folder.rmdir()
+
     def test_product_images(self):
         status,body=self.get('index.php?sku=louis-vuitton-ombre-nomade')
         self.assertEqual(status,200)

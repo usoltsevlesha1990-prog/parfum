@@ -7,8 +7,23 @@ function imageKey(string $value): string
 }
 
 /** Match exact SKU folders or SKU filenames; ambiguous name guesses are excluded. */
-function productImages(string $sku): array
+function productImages(string $sku, ?int $productId = null): array
 {
+    $pictDirectory = getenv('PARFUM_PICT_DIRECTORY') ?: 'pict';
+    if ($productId !== null && $productId > 0 && preg_match('/^[a-zA-Z0-9_-]+$/D', $pictDirectory)) {
+        $base = __DIR__ . '/' . $pictDirectory;
+        $folder = $base . '/' . $productId;
+        if (!is_link($base) && !is_link($folder) && is_file($folder . '/.complete')) {
+            $photos = [];
+            foreach (glob($folder . '/*.jpg') ?: [] as $path) {
+                if (is_link($path) || !preg_match('/^[1-9][0-9]*-[a-f0-9]{16}\.jpg$/D', basename($path))) { continue; }
+                $info = @getimagesize($path);
+                if (($info['mime'] ?? '') === 'image/jpeg') { $photos[] = '/' . $pictDirectory . '/' . $productId . '/' . basename($path); }
+            }
+            natsort($photos);
+            if ($photos) { return array_values($photos); }
+        }
+    }
     $directory = getenv('PARFUM_IMAGE_DIRECTORY') ?: 'products_pictures';
     if (!preg_match('/^[a-zA-Z0-9_-]+$/D', $directory)) { return []; }
     $root = realpath(__DIR__ . '/' . $directory);
