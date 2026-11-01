@@ -1,4 +1,5 @@
 name: Publish catalog review
+run-name: Publish PHP catalog — ${{ github.sha }}
 on:
   workflow_dispatch:
   push:
