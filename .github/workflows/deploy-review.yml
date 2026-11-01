@@ -1,3 +1,4 @@
+# Deployment key v2 installed and repository secret updated by owner.
 name: Publish catalog review
 run-name: Publish PHP catalog — ${{ github.sha }}
 on:
