@@ -107,7 +107,7 @@ jobs:
           set -euo pipefail
           git show 19413b2:review-site/index.html > /dev/null
           git ls-tree -r --name-only 19413b2 review-site/ | python3 -c 'import sys,re; names=[line.strip().split("/")[-1] for line in sys.stdin]; assert all(re.fullmatch(r"[a-z0-9-]+\.html",n) for n in names); print("\n".join("-rm /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/"+n for n in names))' > "$RUNNER_TEMP/cleanup.sftp"
-          printf -- '-rm /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/index.php\nrmdir /home/parfumplace/web/parfumplace.ru/public_html/catalog-review\n' >> "$RUNNER_TEMP/cleanup.sftp"
+          printf -- '-rm /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/index.php\n-rmdir /home/parfumplace/web/parfumplace.ru/public_html/catalog-review\n' >> "$RUNNER_TEMP/cleanup.sftp"
           sftp -P 22 -i "$HOME/.ssh/parfumplace_deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -b "$RUNNER_TEMP/cleanup.sftp" parfumplace@212.113.99.234
       - name: Remove private key
         if: always()

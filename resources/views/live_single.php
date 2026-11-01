@@ -8,6 +8,12 @@
 <p><a href="<?= e(linkTo(['brand'=>$b['slug']])) ?>">← Все ароматы <?= e($b['name']) ?></a></p>
 <h1><?= e($b['name']) ?> — <?= e($product['name']) ?></h1>
 <dl><?php foreach (['sku'=>'Артикул','gender'=>'Для кого','fragrance_group'=>'Группа ароматов','release_year'=>'Год выпуска'] as $field=>$label): ?><dt><?= e($label) ?></dt><dd><?= e($product[$field] ?: 'Не указано') ?></dd><?php endforeach; ?></dl>
+<?php $images = productImages($product['sku']); ?>
+<?php if ($images): ?><h2>Фотографии</h2>
+<?php foreach ($images as $number => $url): ?>
+<p><a href="<?= e($url) ?>"><img src="<?= e($url) ?>" alt="<?= e($b['name'] . ' ' . $product['name'] . ' — фото ' . ($number + 1)) ?>" width="320" loading="lazy"></a></p>
+<?php endforeach; ?>
+<?php else: ?><p>Фотографии для этого аромата пока не найдены.</p><?php endif; ?>
 <h2>Описание</h2><p><?= nl2br(e($product['description'] ?: 'Описание в базе отсутствует.')) ?></p>
 <h2>Ноты аромата</h2><dl><?php foreach (['top_notes'=>'Верхние ноты','heart_notes'=>'Ноты сердца','base_notes'=>'Базовые ноты'] as $field=>$label): ?><dt><?= e($label) ?></dt><dd><?= e($product[$field] ?: 'Не указаны') ?></dd><?php endforeach; ?></dl>
 <h2>Объёмы и цены</h2><table><thead><tr><th>Объём</th><th>Цена</th></tr></thead><tbody>

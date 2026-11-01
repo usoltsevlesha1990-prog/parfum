@@ -3,7 +3,7 @@ declare(strict_types=1);
 date_default_timezone_set('Europe/Moscow');
 header('Content-Type: text/html; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
-header("Content-Security-Policy: default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+header("Content-Security-Policy: default-src 'none'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
 header('Referrer-Policy: no-referrer');
 header('Cache-Control: no-store');
 function e($value): string { return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }

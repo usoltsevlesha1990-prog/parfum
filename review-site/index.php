@@ -3,7 +3,7 @@ declare(strict_types=1);
 date_default_timezone_set('Europe/Moscow');
 header('Content-Type: text/html; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
-header("Content-Security-Policy: default-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
+header("Content-Security-Policy: default-src 'none'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'");
 header('Referrer-Policy: no-referrer');
 header('Cache-Control: no-store');
 function e($value): string { return htmlspecialchars((string) ($value ?? ''), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'); }
@@ -117,6 +117,48 @@ try {
 catch (Throwable $error) { http_response_code(503); header('X-Catalog-Error: ' . ($error instanceof PDOException ? 'MYSQL-' . (int) ($error->errorInfo[1] ?? 0) : (str_contains($error->getMessage(), 'Missing database config') ? 'CONFIG-MISSING' : 'CONFIG-ERROR'))); error_log('PARFUM PLACE MySQL request failed: '.get_class($error)); $message='Каталог временно недоступен. Проверьте подключение к MySQL.'; }
 $title=$product ? $brands[$product['brand_id']]['name'].' — '.$product['name'] : 'Каталог ароматов';
 if ($_SERVER['REQUEST_METHOD']==='HEAD') { exit; }
+
+
+function imageKey(string $value): string
+{
+    return trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($value)), '-');
+}
+
+/** Match exact SKU folders or SKU filenames; ambiguous name guesses are excluded. */
+function productImages(string $sku): array
+{
+    $directory = getenv('PARFUM_IMAGE_DIRECTORY') ?: 'products_pictures';
+    if (!preg_match('/^[a-zA-Z0-9_-]+$/D', $directory)) { return []; }
+    $root = realpath(__DIR__ . '/' . $directory);
+    $public = realpath(__DIR__);
+    if ($root === false || !is_dir($root) || is_link(__DIR__ . '/' . $directory) || dirname($root) !== $public) { return []; }
+    $found = []; $scanned = 0;
+    try {
+        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
+        $iterator->setMaxDepth(4);
+        foreach ($iterator as $file) {
+            if (++$scanned > 20000) { break; }
+            if (!$file->isFile() || $file->isLink()) { continue; }
+            $real = $file->getRealPath();
+            if ($real === false || !str_starts_with($real, $root . DIRECTORY_SEPARATOR)) { continue; }
+            if (!in_array(strtolower($file->getExtension()), ['jpg','jpeg','png','webp','avif'], true)) { continue; }
+            $relative = substr($real, strlen($root) + 1);
+            $parts = preg_split('~[\\\\/]~', $relative);
+            $stem = imageKey(pathinfo(array_pop($parts), PATHINFO_FILENAME));
+            $key = imageKey($sku);
+            $match = in_array($key, array_map('imageKey', $parts), true)
+                || preg_match('/^' . preg_quote($key, '/') . '(?:-(?:[0-9]+|main|front|back|box|bottle))*$/D', $stem);
+            if (!$match) { continue; }
+            $info = @getimagesize($real);
+            if (!$info || !in_array($info['mime'] ?? '', ['image/jpeg','image/png','image/webp','image/avif'], true)) { continue; }
+            $url = '/' . rawurlencode($directory) . '/' . implode('/', array_map('rawurlencode', explode(DIRECTORY_SEPARATOR, $relative)));
+            $found[] = $url;
+        }
+    } catch (UnexpectedValueException $error) { return []; }
+    natsort($found);
+    return array_values(array_unique($found));
+}
+
 ?>
 <!doctype html>
 <html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title><?= e($title) ?> — PARFUM PLACE</title></head><body>
@@ -128,6 +170,12 @@ if ($_SERVER['REQUEST_METHOD']==='HEAD') { exit; }
 <p><a href="<?= e(linkTo(['brand'=>$b['slug']])) ?>">← Все ароматы <?= e($b['name']) ?></a></p>
 <h1><?= e($b['name']) ?> — <?= e($product['name']) ?></h1>
 <dl><?php foreach (['sku'=>'Артикул','gender'=>'Для кого','fragrance_group'=>'Группа ароматов','release_year'=>'Год выпуска'] as $field=>$label): ?><dt><?= e($label) ?></dt><dd><?= e($product[$field] ?: 'Не указано') ?></dd><?php endforeach; ?></dl>
+<?php $images = productImages($product['sku']); ?>
+<?php if ($images): ?><h2>Фотографии</h2>
+<?php foreach ($images as $number => $url): ?>
+<p><a href="<?= e($url) ?>"><img src="<?= e($url) ?>" alt="<?= e($b['name'] . ' ' . $product['name'] . ' — фото ' . ($number + 1)) ?>" width="320" loading="lazy"></a></p>
+<?php endforeach; ?>
+<?php else: ?><p>Фотографии для этого аромата пока не найдены.</p><?php endif; ?>
 <h2>Описание</h2><p><?= nl2br(e($product['description'] ?: 'Описание в базе отсутствует.')) ?></p>
 <h2>Ноты аромата</h2><dl><?php foreach (['top_notes'=>'Верхние ноты','heart_notes'=>'Ноты сердца','base_notes'=>'Базовые ноты'] as $field=>$label): ?><dt><?= e($label) ?></dt><dd><?= e($product[$field] ?: 'Не указаны') ?></dd><?php endforeach; ?></dl>
 <h2>Объёмы и цены</h2><table><thead><tr><th>Объём</th><th>Цена</th></tr></thead><tbody>

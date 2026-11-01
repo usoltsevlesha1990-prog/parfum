@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import html
+import base64
+import tempfile
 import os
 from pathlib import Path
 import re
@@ -19,7 +21,17 @@ class SinglePhpTests(unittest.TestCase):
         with socket.socket() as s:
             s.bind(('127.0.0.1',0)); port=s.getsockname()[1]
         cls.base=f'http://127.0.0.1:{port}/'
-        cls.server=subprocess.Popen([os.environ.get('PHP_BIN','php'),'-S',f'127.0.0.1:{port}','-t',str(ROOT/'review-site')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        cls.images=tempfile.TemporaryDirectory(prefix='test-images-',dir=ROOT/'review-site')
+        folder=Path(cls.images.name)/'louis-vuitton-ombre-nomade'
+        folder.mkdir()
+        png=base64.b64decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aX1sAAAAASUVORK5CYII=')
+        (folder/'1.png').write_bytes(png)
+        (folder/'fake.jpg').write_text('not an image')
+        (Path(cls.images.name)/'louis-vuitton-ombre-nomade-parfum.png').write_bytes(png)
+        (Path(cls.images.name)/'louis-vuitton-imagination.png').write_bytes(png)
+        (folder/'link.png').symlink_to('/etc/passwd')
+        server_env=dict(os.environ,PARFUM_IMAGE_DIRECTORY=Path(cls.images.name).name)
+        cls.server=subprocess.Popen([os.environ.get('PHP_BIN','php'),'-S',f'127.0.0.1:{port}','-t',str(ROOT/'review-site')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=server_env)
         try:
             for _ in range(40):
                 try:
@@ -30,7 +42,7 @@ class SinglePhpTests(unittest.TestCase):
         except Exception:
             cls.server.terminate();cls.server.wait();raise
     @classmethod
-    def tearDownClass(cls): cls.server.terminate();cls.server.wait()
+    def tearDownClass(cls): cls.server.terminate();cls.server.wait();cls.images.cleanup()
     def get(self,path='index.php'):
         try: r=urllib.request.urlopen(self.base+path,timeout=5)
         except urllib.error.HTTPError as error:r=error
@@ -58,6 +70,22 @@ class SinglePhpTests(unittest.TestCase):
         links=re.findall('href="(index.php\\?brand=[a-zA-Z0-9_-]+)"',body)
         self.assertEqual(len(links),9)
         for link in links:self.assertGreater(self.get(html.unescape(link))[1].count('data-product-link'),0)
+    def test_product_images(self):
+        status,body=self.get('index.php?sku=louis-vuitton-ombre-nomade')
+        self.assertEqual(status,200)
+        sources=re.findall(r'<img src="([^"]+)"',body)
+        self.assertEqual(len(sources),1)
+        self.assertTrue(sources[0].endswith('/louis-vuitton-ombre-nomade/1.png'))
+        with urllib.request.urlopen(self.base+sources[0].lstrip('/'),timeout=5) as response:
+            self.assertEqual(response.status,200)
+            self.assertEqual(response.headers.get_content_type(),'image/png')
+        self.assertNotIn('fake.jpg',body)
+        self.assertNotIn('link.png',body)
+        self.assertNotIn('ombre-nomade-parfum.png',body)
+        status,body=self.get('index.php?sku=louis-vuitton-imagination')
+        self.assertIn('/louis-vuitton-imagination.png',body)
+        self.assertNotIn('/louis-vuitton-ombre-nomade/1.png',body)
+
     def test_invalid(self):
         for q in ['q[]=x','page=-1','sku[]=x','q=%FF']:
             self.assertEqual(self.get('index.php?'+q)[0],400)
