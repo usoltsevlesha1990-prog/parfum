@@ -3,6 +3,12 @@ name: Publish catalog review
 run-name: Publish PHP catalog — ${{ github.sha }}
 on:
   workflow_dispatch:
+    inputs:
+      organize_photos:
+        description: 'Run explicit photo migration and retired-folder cleanup'
+        required: false
+        default: false
+        type: boolean
   push:
     branches: [main]
     paths:
@@ -108,6 +114,7 @@ jobs:
               print('Verified:', url)
           PY
       - name: Reorganize matched photos into pict by database ID
+        if: github.event_name == 'workflow_dispatch' && inputs.organize_photos
         shell: bash
         run: |
           set -euo pipefail
@@ -118,6 +125,7 @@ jobs:
           fi
           python3 tools/reorganize_images.py verify "$RUNNER_TEMP/pict-migration"
       - name: Delete retired products_pictures after verified migration
+        if: github.event_name == 'workflow_dispatch' && inputs.organize_photos
         shell: bash
         run: |
           set -euo pipefail
