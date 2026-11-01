@@ -7,7 +7,7 @@
 <?php elseif ($product !== null): $b = $brands[$product['brand_id']]; ?>
 <p><a href="<?= e(linkTo(['brand'=>$b['slug']])) ?>">← Все ароматы <?= e($b['name']) ?></a></p>
 <h1 data-product-id="<?= (int) $product['id'] ?>"><?= e($b['name']) ?> — <?= e($product['name']) ?></h1>
-<dl><?php foreach (['sku'=>'Артикул','gender'=>'Для кого','fragrance_group'=>'Группа ароматов','release_year'=>'Год выпуска'] as $field=>$label): ?><dt><?= e($label) ?></dt><dd><?= e($product[$field] ?: 'Не указано') ?></dd><?php endforeach; ?></dl>
+<dl><?php foreach (['gender'=>'Для кого','fragrance_group'=>'Группа ароматов','release_year'=>'Год выпуска'] as $field=>$label): ?><dt><?= e($label) ?></dt><dd><?= e($product[$field] ?: 'Не указано') ?></dd><?php endforeach; ?></dl>
 <?php $images = productImages($product['sku'], (int) $product['id']); ?>
 <?php if ($images): ?><h2>Фотографии</h2>
 <?php foreach ($images as $number => $url): ?>

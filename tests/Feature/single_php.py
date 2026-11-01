@@ -59,6 +59,7 @@ class SinglePhpTests(unittest.TestCase):
             for link in re.findall('data-product-link href="([^"]+)"',body):
                 found.add(link);status,product=self.get(html.unescape(link));self.assertEqual(status,200)
                 self.assertIn('Описание',product);self.assertIn('Верхние ноты',product)
+                self.assertNotIn('<dt>Артикул</dt>',product)
                 self.assertEqual(product.count('data-variant'),1);self.assertNotRegex(product,r'>(5|10) мл<')
         self.assertEqual(len(found),63)
     def test_search(self):
