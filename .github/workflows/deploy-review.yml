@@ -18,7 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Validate standalone catalog
-        run: python3 tools/check_review_export.py review-site
+        run: |
+          php -l review-site/index.php
+          python3 tests/Feature/single_php.py -v
       - name: Install deployment key and verify server identity
         env:
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -33,14 +35,14 @@ jobs:
           ssh-keyscan -T 15 -p 22 -t ed25519 212.113.99.234 > "$RUNNER_TEMP/host-key"
           test "$(ssh-keygen -lf "$RUNNER_TEMP/host-key" -E sha256 | awk '{print $2}')" = 'SHA256:A3zj4MdiiGuCl2TK9enHX8q7QV7nQ/uL6W2pnNY+gZA'
           cp "$RUNNER_TEMP/host-key" "$HOME/.ssh/known_hosts"
-      - name: Upload HTML over SFTP
+      - name: Upload single PHP file over SFTP
         shell: bash
         run: |
           set -euo pipefail
           cat > "$RUNNER_TEMP/upload.sftp" <<'SFTP'
           -mkdir /home/parfumplace/web/parfumplace.ru/public_html/catalog-review
-          put review-site/*.html /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/
-          ls /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/index.html
+          put review-site/index.php /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/index.php
+          ls /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/index.php
           SFTP
           sftp -P 22 -i "$HOME/.ssh/parfumplace_deploy" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
@@ -49,7 +51,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import urllib.request
-          for page in ['index.html', 'catalog-2.html', 'product-louis-vuitton-ombre-nomade.html']:
+          for page in ['index.php', 'index.php?page=2', 'index.php?sku=louis-vuitton-ombre-nomade']:
               url = 'https://parfumplace.ru/catalog-review/' + page
               with urllib.request.urlopen(url, timeout=30) as response:
                   body = response.read().decode('utf-8')

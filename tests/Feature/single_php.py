@@ -1,0 +1,66 @@
+#!/usr/bin/env python3
+import html
+import os
+from pathlib import Path
+import re
+import socket
+import subprocess
+import time
+import unittest
+import urllib.request
+import urllib.error
+from urllib.parse import urlencode
+
+ROOT = Path(__file__).resolve().parents[2]
+
+class SinglePhpTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        with socket.socket() as s:
+            s.bind(('127.0.0.1',0)); port=s.getsockname()[1]
+        cls.base=f'http://127.0.0.1:{port}/'
+        cls.server=subprocess.Popen([os.environ.get('PHP_BIN','php'),'-S',f'127.0.0.1:{port}','-t',str(ROOT/'review-site')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        try:
+            for _ in range(40):
+                try:
+                    with urllib.request.urlopen(cls.base+'index.php',timeout=1) as response:
+                        if response.status==200: return
+                except OSError: time.sleep(.1)
+            raise RuntimeError('PHP server did not start')
+        except Exception:
+            cls.server.terminate();cls.server.wait();raise
+    @classmethod
+    def tearDownClass(cls): cls.server.terminate();cls.server.wait()
+    def get(self,path='index.php'):
+        try: r=urllib.request.urlopen(self.base+path,timeout=5)
+        except urllib.error.HTTPError as error:r=error
+        with r:return r.status,r.read().decode()
+    def test_catalog(self):
+        status,body=self.get();self.assertEqual(status,200);self.assertEqual(body.count('data-product-link'),12)
+        self.assertNotIn('<style',body);self.assertNotIn('<script',body);self.assertNotIn('stylesheet',body)
+        self.assertEqual(self.get('index.php?page=6')[1].count('data-product-link'),3)
+    def test_all_product_links(self):
+        found=set()
+        for page in range(1,7):
+            status,body=self.get(f'index.php?page={page}');self.assertEqual(status,200)
+            for link in re.findall('data-product-link href="([^"]+)"',body):
+                found.add(link);status,product=self.get(html.unescape(link));self.assertEqual(status,200)
+                self.assertIn('Описание',product);self.assertIn('Верхние ноты',product)
+                self.assertEqual(product.count('data-variant'),1);self.assertNotRegex(product,r'>(5|10) мл<')
+        self.assertEqual(len(found),63)
+    def test_search(self):
+        self.assertEqual(self.get('index.php?q=Ombre+Nomade')[1].count('data-product-link'),1)
+        for query in ["' OR 1=1", '<script>alert(1)</script>', '%']:
+            status,body=self.get('index.php?'+urlencode({'q':query}));self.assertEqual(status,200)
+            self.assertIn('Ароматы не найдены',body);self.assertNotIn('<script>',body)
+    def test_brands(self):
+        _,body=self.get()
+        links=re.findall('href="(index.php\\?brand=[a-zA-Z0-9_-]+)"',body)
+        self.assertEqual(len(links),9)
+        for link in links:self.assertGreater(self.get(html.unescape(link))[1].count('data-product-link'),0)
+    def test_invalid(self):
+        for q in ['q[]=x','page=-1','sku[]=x','q=%FF']:
+            self.assertEqual(self.get('index.php?'+q)[0],400)
+        self.assertEqual(self.get('index.php?sku=missing')[0],404)
+
+if __name__=='__main__':unittest.main()
