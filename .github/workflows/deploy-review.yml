@@ -1,4 +1,4 @@
-# Deployment key v2 installed and repository secret updated by owner.
+# Live MySQL catalog provisioned on Hestia; deploy the database-backed page.
 name: Publish catalog review
 run-name: Publish PHP catalog — ${{ github.sha }}
 on:
