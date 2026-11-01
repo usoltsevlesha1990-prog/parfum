@@ -17,11 +17,32 @@ jobs:
   deploy:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:11.8
+        env:
+          MARIADB_ROOT_PASSWORD: catalog-ci-only
+          MARIADB_DATABASE: parfum_place_dev
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: '3306'
+      DB_NAME: parfum_place_dev
+      DB_USER: root
+      DB_PASSWORD: catalog-ci-only
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
       - name: Validate standalone catalog
         run: |
           php -l review-site/index.php
+          php -r 'file_put_contents("/tmp/parfum-ci-database.php", "<?php return " . var_export(["host"=>"127.0.0.1","name"=>"parfum_place_dev","user"=>"root","password"=>getenv("DB_PASSWORD")], true) . ";");'
+          php tools/import_mysql_catalog.php /tmp/parfum-ci-database.php
           python3 tests/Feature/single_php.py -v
       - name: Install deployment key and verify server identity
         env:
@@ -52,6 +73,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Fail before replacing the live page if database provisioning is incomplete.
+          printf 'ls /home/parfumplace/.config/parfumplace/database.php\n' > "$RUNNER_TEMP/preflight.sftp"
+          sftp -P 22 -i "$HOME/.ssh/parfumplace_deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -b "$RUNNER_TEMP/preflight.sftp" parfumplace@212.113.99.234
           cat > "$RUNNER_TEMP/upload.sftp" <<'SFTP'
           -mkdir /home/parfumplace/web/parfumplace.ru/public_html/catalog-review
           put review-site/index.php /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/index.php
@@ -71,6 +95,13 @@ jobs:
                   assert response.status == 200 and 'PARFUM PLACE' in body, url
               print('Verified:', url)
           PY
+      - name: Remove historical HTML exports after successful PHP verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          git show 19413b2:review-site/index.html > /dev/null
+          git ls-tree -r --name-only 19413b2 review-site/ | python3 -c 'import sys,re; names=[line.strip().split("/")[-1] for line in sys.stdin]; assert all(re.fullmatch(r"[a-z0-9-]+\.html",n) for n in names); print("\n".join("-rm /home/parfumplace/web/parfumplace.ru/public_html/catalog-review/"+n for n in names))' > "$RUNNER_TEMP/cleanup.sftp"
+          sftp -P 22 -i "$HOME/.ssh/parfumplace_deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -b "$RUNNER_TEMP/cleanup.sftp" parfumplace@212.113.99.234
       - name: Remove private key
         if: always()
         run: rm -f "$HOME/.ssh/parfumplace_deploy"
