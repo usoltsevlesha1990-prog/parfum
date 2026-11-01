@@ -74,7 +74,7 @@ final class CatalogRepository
 }
 
 function database(): PDO {
-    $configFile = getenv('PARFUM_DB_CONFIG') ?: dirname(__DIR__, 4) . '/.config/parfumplace/database.php';
+    $configFile = getenv('PARFUM_DB_CONFIG') ?: dirname(__DIR__, 2) . '/private/database.php';
     $config = [];
     if (is_file($configFile)) {
         $config = require $configFile;
@@ -114,7 +114,7 @@ try {
         }
     }
 } catch (InvalidArgumentException $error) { http_response_code(400); $message='Некорректные параметры'; }
-catch (Throwable $error) { http_response_code(503); error_log('PARFUM PLACE MySQL request failed: '.get_class($error)); $message='Каталог временно недоступен. Проверьте подключение к MySQL.'; }
+catch (Throwable $error) { http_response_code(503); header('X-Catalog-Error: ' . ($error instanceof PDOException ? 'MYSQL-' . (int) ($error->errorInfo[1] ?? 0) : (str_contains($error->getMessage(), 'Missing database config') ? 'CONFIG-MISSING' : 'CONFIG-ERROR'))); error_log('PARFUM PLACE MySQL request failed: '.get_class($error)); $message='Каталог временно недоступен. Проверьте подключение к MySQL.'; }
 $title=$product ? $brands[$product['brand_id']]['name'].' — '.$product['name'] : 'Каталог ароматов';
 if ($_SERVER['REQUEST_METHOD']==='HEAD') { exit; }
 ?>

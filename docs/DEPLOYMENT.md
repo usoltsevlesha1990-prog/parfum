@@ -37,7 +37,7 @@ GitHub Actions → Publish catalog review. Перед загрузкой вып�
 не используется float. Пробники и отливанты исключены.
 
 Реквизиты читаются из окружения DB_* или закрытого файла
-`/home/parfumplace/.config/parfumplace/database.php`, вне public_html.
+`/home/parfumplace/web/parfumplace.ru/private/database.php`, вне public_html.
 Без реквизитов или при ошибке SQL возвращается 503, без статического fallback.
 Деплой проверяет наличие закрытого конфига до замены текущей страницы.
 

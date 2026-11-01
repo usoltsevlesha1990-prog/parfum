@@ -5,7 +5,7 @@ set -euo pipefail
 PARFUM_REVISION=${1:?Pass the reviewed full Git commit SHA}
 [[ "$PARFUM_REVISION" =~ ^[0-9a-f]{40}$ ]] || exit 1
 PARFUM_USER=parfumplace
-PARFUM_CONFIG=/home/parfumplace/.config/parfumplace/database.php
+PARFUM_CONFIG=/home/parfumplace/web/parfumplace.ru/private/database.php
 [ ! -e "$PARFUM_CONFIG" ] || { echo 'Database config already exists; refusing to overwrite.' >&2; exit 1; }
 command -v php >/dev/null
 php -r 'exit(extension_loaded("pdo_mysql") ? 0 : 1);'
@@ -20,7 +20,7 @@ for PARFUM_FILE in tools/import_mysql_catalog.php bootstrap/catalog_schema.php t
 done
 PARFUM_PASSWORD=$(openssl rand -hex 24)
 /usr/local/hestia/bin/v-add-database "$PARFUM_USER" catalog catalog "$PARFUM_PASSWORD" mysql localhost utf8mb4
-install -d -m 700 -o "$PARFUM_USER" -g "$PARFUM_USER" /home/parfumplace/.config/parfumplace
+mkdir -p /home/parfumplace/web/parfumplace.ru/private
 umask 077
 # The random password contains hex only; it is never printed or sent to GitHub.
 printf "<?php\nreturn ['host'=>'127.0.0.1','name'=>'parfumplace_catalog','user'=>'parfumplace_catalog','password'=>'%s'];\n" "$PARFUM_PASSWORD" > "$PARFUM_CONFIG"

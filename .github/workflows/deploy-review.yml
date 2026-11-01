@@ -74,7 +74,12 @@ jobs:
         run: |
           set -euo pipefail
           # Fail before replacing the live page if database provisioning is incomplete.
-          printf 'ls /home/parfumplace/.config/parfumplace/database.php\n' > "$RUNNER_TEMP/preflight.sftp"
+          cat > "$RUNNER_TEMP/preflight.sftp" <<'PREFLIGHT'
+          -mkdir /home/parfumplace/web/parfumplace.ru/private
+          -rename /home/parfumplace/.config/parfumplace/database.php /home/parfumplace/web/parfumplace.ru/private/database.php
+          chmod 600 /home/parfumplace/web/parfumplace.ru/private/database.php
+          ls /home/parfumplace/web/parfumplace.ru/private/database.php
+          PREFLIGHT
           sftp -P 22 -i "$HOME/.ssh/parfumplace_deploy" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=15 -b "$RUNNER_TEMP/preflight.sftp" parfumplace@212.113.99.234
           cat > "$RUNNER_TEMP/upload.sftp" <<'SFTP'
           -mkdir /home/parfumplace/web/parfumplace.ru/public_html/catalog-review
