@@ -32,7 +32,7 @@ class SinglePhpTests(unittest.TestCase):
         (Path(cls.images.name)/'louis-vuitton-imagination.png').write_bytes(png)
         (folder/'link.png').symlink_to('/etc/passwd')
         server_env=dict(os.environ,PARFUM_IMAGE_DIRECTORY=Path(cls.images.name).name,PARFUM_PICT_DIRECTORY=Path(cls.pict.name).name)
-        cls.server=subprocess.Popen([os.environ.get('PHP_BIN','php'),'-S',f'127.0.0.1:{port}','-t',str(ROOT/'review-site')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=server_env)
+        cls.server=subprocess.Popen([os.environ.get('PHP_BIN','php'),'-S',f'127.0.0.1:{port}','-t',str(ROOT/'review-site'),str(ROOT/'tests/Feature/router.php')],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=server_env)
         try:
             for _ in range(40):
                 try:
@@ -45,7 +45,7 @@ class SinglePhpTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls): cls.server.terminate();cls.server.wait();cls.images.cleanup();cls.pict.cleanup()
     def get(self,path='index.php'):
-        try: r=urllib.request.urlopen(self.base+path,timeout=5)
+        try: r=urllib.request.urlopen(self.base+path.lstrip('/'),timeout=5)
         except urllib.error.HTTPError as error:r=error
         with r:return r.status,r.read().decode()
     def test_catalog(self):
@@ -69,7 +69,7 @@ class SinglePhpTests(unittest.TestCase):
             self.assertIn('Ароматы не найдены',body);self.assertNotIn('<script>',body)
     def test_brands(self):
         _,body=self.get()
-        links=re.findall('href="(index.php\\?brand=[a-zA-Z0-9_-]+)"',body)
+        links=re.findall('href="(/\\?brand=[a-zA-Z0-9_-]+)"',body)
         self.assertEqual(len(links),9)
         for link in links:self.assertGreater(self.get(html.unescape(link))[1].count('data-product-link'),0)
     def test_migrated_product_images(self):
@@ -107,6 +107,25 @@ class SinglePhpTests(unittest.TestCase):
         status,body=self.get('index.php?sku=louis-vuitton-imagination')
         self.assertIn('/louis-vuitton-imagination.png',body)
         self.assertNotIn('/louis-vuitton-ombre-nomade/1.png',body)
+
+    def test_canonical_product_urls(self):
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl): return None
+        opener=urllib.request.build_opener(NoRedirect)
+        for legacy in ['index.php?sku=dior-sauvage','dior/sauvage']:
+            with self.assertRaises(urllib.error.HTTPError) as result:
+                opener.open(self.base+legacy,timeout=5)
+            self.assertEqual(result.exception.code,301)
+            self.assertEqual(result.exception.headers['Location'],'/dior/sauvage/')
+        status,body=self.get('/dior/sauvage/')
+        self.assertEqual(status,200)
+        self.assertIn('Sauvage',body)
+        self.assertIn('href="https://parfumplace.ru/dior/sauvage/"',body)
+        self.assertEqual(self.get('/chanel/sauvage/')[0],404)
+        self.assertEqual(self.get('/dior/not-a-fragrance/')[0],404)
+        _,home=self.get()
+        links=re.findall(r'data-product-link href="([^"]+)"',home)
+        self.assertTrue(all(re.fullmatch(r'/[a-z0-9-]+/[a-z0-9-]+/',link) for link in links))
 
     def test_invalid(self):
         for q in ['q[]=x','page=-1','sku[]=x','q=%FF']:

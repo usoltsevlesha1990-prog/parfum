@@ -92,11 +92,15 @@ jobs:
           sftp -P 22 -i "$HOME/.ssh/parfumplace_deploy" \
             -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes \
             -o ConnectTimeout=15 -b "$RUNNER_TEMP/upload.sftp" parfumplace@212.113.99.234
+      - name: Publish brand and fragrance routes
+        run: |
+          python3 -m pip install --disable-pip-version-check paramiko==4.0.0
+          python3 tools/publish_product_routes.py "$HOME/.ssh/parfumplace_deploy" "$HOME/.ssh/known_hosts"
       - name: Verify published catalog
         run: |
           python3 - <<'PY'
           import urllib.request
-          for page in ['', 'index.php?page=2', 'index.php?sku=louis-vuitton-ombre-nomade']:
+          for page in ['', 'index.php?page=2', 'dior/sauvage/', 'louis-vuitton/ombre-nomade/']:
               url = 'https://parfumplace.ru/' + page
               with urllib.request.urlopen(url, timeout=30) as response:
                   body = response.read().decode('utf-8')

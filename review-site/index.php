@@ -12,7 +12,15 @@ function money($value): string {
     [$whole, $fraction] = array_pad(explode('.', (string) $value, 2), 2, '00');
     return preg_replace('/\B(?=(\d{3})+(?!\d))/', ' ', $whole) . ($fraction !== '00' ? ',' . $fraction : '') . ' ₽';
 }
-function linkTo(array $parameters = []): string { return 'index.php' . ($parameters ? '?' . http_build_query($parameters) : ''); }
+function linkTo(array $parameters = []): string { return '/' . ($parameters ? '?' . http_build_query($parameters) : ''); }
+function productUrl(string $sku, string $brandSlug): string
+{
+    $name = $sku;
+    while (str_starts_with($name, $brandSlug . '-') && strlen($name) > strlen($brandSlug) + 1) {
+        $name = substr($name, strlen($brandSlug) + 1);
+    }
+    return '/' . rawurlencode($brandSlug) . '/' . rawurlencode($name) . '/';
+}
 final class CatalogRepository
 {
     // A promotion is shown only while valid, positive and lower than the regular price.
@@ -55,9 +63,21 @@ final class CatalogRepository
         $total = (int) $count->fetchColumn();
         $pages = max(1, (int) ceil($total / 12));
         $page = min($page, $pages);
-        $sql = 'SELECT p.*,b.name AS brand_name,prices.min_price FROM products p JOIN brands b ON b.id=p.brand_id LEFT JOIN (SELECT product_id,MIN(' . self::PRICE . ') AS min_price FROM product_prices WHERE price>0 AND volume_ml IN (' . $this->volumes . ') GROUP BY product_id) prices ON prices.product_id=p.id' . $filter . ' ORDER BY b.sort_order,p.sort_order,p.id LIMIT 12 OFFSET ' . (($page - 1) * 12);
+        $sql = 'SELECT p.*,b.name AS brand_name,b.slug AS brand_slug,prices.min_price FROM products p JOIN brands b ON b.id=p.brand_id LEFT JOIN (SELECT product_id,MIN(' . self::PRICE . ') AS min_price FROM product_prices WHERE price>0 AND volume_ml IN (' . $this->volumes . ') GROUP BY product_id) prices ON prices.product_id=p.id' . $filter . ' ORDER BY b.sort_order,p.sort_order,p.id LIMIT 12 OFFSET ' . (($page - 1) * 12);
         $stmt = $this->db->prepare($sql); $stmt->execute($args);
         return ['items' => $stmt->fetchAll(), 'total' => $total, 'page' => $page, 'pages' => $pages];
+    }
+
+    public function productAtPath(string $brand, string $name): ?array
+    {
+        $statement = $this->db->prepare('SELECT p.sku FROM products p JOIN brands b ON b.id=p.brand_id WHERE b.slug=? AND ' . $this->eligible());
+        $statement->execute([$brand]);
+        $matches = [];
+        foreach ($statement->fetchAll(PDO::FETCH_COLUMN) as $sku) {
+            if (productUrl($sku, $brand) === '/' . $brand . '/' . $name . '/') { $matches[] = $sku; }
+        }
+        if (count($matches) > 1) { throw new RuntimeException('Duplicate canonical product URL'); }
+        return $matches ? $this->product($matches[0]) : null;
     }
 
     public function product(string $sku): ?array
@@ -102,13 +122,24 @@ try {
         }
         $query=trim($_GET['q'] ?? ''); $brand=$_GET['brand'] ?? ''; $rawPage=$_GET['page'] ?? '1'; $sku=$_GET['sku'] ?? '';
         if (strlen($query)>480 || preg_match('//u',$query)!==1 || strlen($brand)>60 || !preg_match('/^[a-zA-Z0-9_-]*$/D',$brand) || strlen($sku)>150 || !preg_match('/^[a-zA-Z0-9_-]*$/D',$sku) || !preg_match('/^[1-9][0-9]{0,5}$/D',$rawPage)) { throw new InvalidArgumentException(); }
+        $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
+        $route = [];
+        if (!is_string($path) || (!in_array($path, ['/', '/index.php'], true) && !preg_match('~^/([a-z0-9-]+)/([a-z0-9-]+)/?$~D', $path, $route))) {
+            http_response_code(404); $message='Страница не найдена';
+        }
         $repo=new CatalogRepository(database());
         foreach ($repo->brands() as $b) { $brands[$b['id']]=$b; }
-        if ($sku!=='') {
-            $product=$repo->product($sku);
+        if ($message === null && ($sku!=='' || $route)) {
+            $product=$route ? $repo->productAtPath($route[1],$route[2]) : $repo->product($sku);
             if ($product===null) { http_response_code(404); $message='Аромат не найден'; }
-            else { $prices[$product['id']]=$product['variants']; }
-        } else {
+            else {
+                $canonical = productUrl($product['sku'], $product['brand_slug']);
+                if ($path !== $canonical || $sku !== '') {
+                    http_response_code(301); header('Location: ' . $canonical); exit;
+                }
+                $prices[$product['id']]=$product['variants'];
+            }
+        } elseif ($message === null) {
             $catalog=$repo->search($query,$brand,(int)$rawPage);
             $items=$catalog['items']; $total=$catalog['total']; $page=$catalog['page']; $pages=$catalog['pages'];
         }
@@ -176,8 +207,8 @@ function productImages(string $sku, ?int $productId = null): array
 
 ?>
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title><?= e($title) ?> — PARFUM PLACE</title></head><body>
-<p><a href="index.php">PARFUM PLACE — все ароматы</a></p>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex, nofollow"><title><?= e($title) ?> — PARFUM PLACE</title><?php if ($product !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e(productUrl($product['sku'],$product['brand_slug'])) ?>"><?php endif; ?></head><body>
+<p><a href="/">PARFUM PLACE — все ароматы</a></p>
 <p>Только целые заводские флаконы. Без пробников и отливантов.</p>
 <p>Актуальный каталог из MySQL.</p>
 <?php if ($message !== null): ?><h1><?= e($message) ?></h1>
@@ -197,11 +228,11 @@ function productImages(string $sku, ?int $productId = null): array
 <?php foreach ($prices[$product['id']] as $price): ?><tr data-variant><td><?= (int) $price['volume_ml'] ?> мл</td><td><?= e(money($price['effective_price'])) ?></td></tr><?php endforeach; ?>
 </tbody></table><p>Наличие требует подтверждения.</p>
 <?php else: ?>
-<h1>Каталог ароматов</h1><h2>Бренды</h2><ul><li><a href="index.php">Все бренды</a></li>
+<h1>Каталог ароматов</h1><h2>Бренды</h2><ul><li><a href="/">Все бренды</a></li>
 <?php foreach ($brands as $b): ?><li><a href="<?= e(linkTo(['brand'=>$b['slug']])) ?>"><?= e($b['name']) ?></a></li><?php endforeach; ?></ul>
-<form action="index.php" method="get"><label>Поиск <input name="q" value="<?= e($query) ?>" maxlength="120"></label><input type="hidden" name="brand" value="<?= e($brand) ?>"><button>Найти</button></form>
+<form action="/" method="get"><label>Поиск <input name="q" value="<?= e($query) ?>" maxlength="120"></label><input type="hidden" name="brand" value="<?= e($brand) ?>"><button>Найти</button></form>
 <h2>Ароматы</h2><p>Найдено: <?= $total ?>. Страница <?= $page ?> из <?= $pages ?>.</p>
 <?php if (!$items): ?><p>Ароматы не найдены.</p><?php endif; ?><ul>
-<?php foreach ($items as $p): ?><li><a data-product-link href="<?= e(linkTo(['sku'=>$p['sku']])) ?>"><?= e($brands[$p['brand_id']]['name']) ?> — <?= e($p['name']) ?></a></li><?php endforeach; ?></ul>
+<?php foreach ($items as $p): ?><li><a data-product-link href="<?= e(productUrl($p['sku'],$p['brand_slug'])) ?>"><?= e($brands[$p['brand_id']]['name']) ?> — <?= e($p['name']) ?></a></li><?php endforeach; ?></ul>
 <nav aria-label="Страницы каталога"><?php for($i=1;$i<=$pages;$i++): ?><a href="<?= e(linkTo(['brand'=>$brand,'q'=>$query,'page'=>$i])) ?>" <?= $page===$i?'aria-current="page"':'' ?>><?= $i ?></a> <?php endfor; ?></nav>
 <?php endif; ?></body></html>
