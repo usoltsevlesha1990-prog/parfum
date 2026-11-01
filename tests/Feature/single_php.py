@@ -69,7 +69,7 @@ class SinglePhpTests(unittest.TestCase):
             self.assertIn('Ароматы не найдены',body);self.assertNotIn('<script>',body)
     def test_brands(self):
         _,body=self.get()
-        links=re.findall('href="(/\\?brand=[a-zA-Z0-9_-]+)"',body)
+        links=re.findall(r'data-brand-link href="(/[a-zA-Z0-9_-]+/)"',body)
         self.assertEqual(len(links),9)
         for link in links:self.assertGreater(self.get(html.unescape(link))[1].count('data-product-link'),0)
     def test_migrated_product_images(self):
@@ -126,6 +126,22 @@ class SinglePhpTests(unittest.TestCase):
         _,home=self.get()
         links=re.findall(r'data-product-link href="([^"]+)"',home)
         self.assertTrue(all(re.fullmatch(r'/[a-z0-9-]+/[a-z0-9-]+/',link) for link in links))
+
+    def test_brand_canonical_urls(self):
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self,*args,**kwargs):return None
+        opener=urllib.request.build_opener(NoRedirect)
+        for old in ['index.php?brand=yves-saint-laurent','yves-saint-laurent']:
+            with self.assertRaises(urllib.error.HTTPError) as result:opener.open(self.base+old,timeout=5)
+            self.assertEqual(result.exception.code,301)
+            self.assertEqual(result.exception.headers['Location'],'/yves-saint-laurent/')
+        status,body=self.get('/yves-saint-laurent/')
+        self.assertEqual(status,200)
+        self.assertIn('<h1>Yves Saint Laurent</h1>',body)
+        links=re.findall(r'data-product-link href="([^"]+)"',body)
+        self.assertTrue(links)
+        self.assertTrue(all(link.startswith('/yves-saint-laurent/') for link in links))
+        self.assertEqual(self.get('/unknown-brand/')[0],404)
 
     def test_invalid(self):
         for q in ['q[]=x','page=-1','sku[]=x','q=%FF']:

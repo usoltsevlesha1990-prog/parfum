@@ -10,10 +10,11 @@ import urllib.request
 ROOT='/home/parfumplace/web/parfumplace.ru/public_html'
 
 class Links(HTMLParser):
-    def __init__(self):super().__init__();self.products=[]
+    def __init__(self):super().__init__();self.products=[];self.brands=[]
     def handle_starttag(self,tag,attributes):
         attributes=dict(attributes)
         if tag=='a' and 'data-product-link' in attributes:self.products.append(attributes['href'])
+        if tag=='a' and 'data-brand-link' in attributes:self.brands.append(attributes['href'])
 
 def catalog_routes():
     routes=set();pages=None;total=None
@@ -41,26 +42,36 @@ def ensure_directory(sftp,path):
         sftp.mkdir(path,mode=0o755);attributes=sftp.lstat(path)
     if not stat.S_ISDIR(attributes.st_mode) or sftp.normalize(path)!=path:raise ValueError('Unexpected route directory or symlink')
 
+def ensure_index(sftp,directory,target):
+    entry=posixpath.join(directory,'index.php')
+    try:attributes=sftp.lstat(entry)
+    except FileNotFoundError:sftp.symlink(target,entry)
+    else:
+        if not stat.S_ISLNK(attributes.st_mode) or sftp.readlink(entry)!=target:raise ValueError('Existing route entry is not our link; refusing to overwrite')
+
 def publish(key,known_hosts):
     import paramiko
     routes=catalog_routes()
+    with urllib.request.urlopen('https://parfumplace.ru/',timeout=30) as response:
+        parser=Links();parser.feed(response.read().decode())
+    brand_routes=set(parser.brands)
+    if not brand_routes or any(not re.fullmatch(r'/[a-z0-9-]+/',path) or path.strip('/') in {'pict','products_pictures','private','assets'} for path in brand_routes):raise ValueError('Unexpected brand routes')
     client=paramiko.SSHClient();client.load_host_keys(known_hosts);client.set_missing_host_key_policy(paramiko.RejectPolicy())
     client.connect('212.113.99.234',port=22,username='parfumplace',key_filename=key,look_for_keys=False,allow_agent=False,timeout=20)
     try:
         with client.open_sftp() as sftp:
             if sftp.normalize(ROOT)!=ROOT:raise ValueError('Unexpected public root')
+            for route in sorted(brand_routes):
+                directory=posixpath.join(ROOT,route.strip('/'))
+                ensure_directory(sftp,directory);ensure_index(sftp,directory,'../index.php')
             for route in routes:
                 brand,name=route.strip('/').split('/')
                 parent=posixpath.join(ROOT,brand)
                 directory=posixpath.join(parent,name)
                 ensure_directory(sftp,parent);ensure_directory(sftp,directory)
-                entry=posixpath.join(directory,'index.php')
-                try:attributes=sftp.lstat(entry)
-                except FileNotFoundError:sftp.symlink('../../index.php',entry)
-                else:
-                    if not stat.S_ISLNK(attributes.st_mode) or sftp.readlink(entry)!='../../index.php':raise ValueError('Existing route entry is not our link; refusing to overwrite')
+                ensure_index(sftp,directory,'../../index.php')
     finally:client.close()
-    print(f'Canonical routes published: {len(routes)}; all share the root index.php')
+    print(f'Canonical routes published: {len(routes)} product and {len(brand_routes)} brand pages; all share the root index.php')
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('key');p.add_argument('known_hosts');a=p.parse_args();publish(a.key,a.known_hosts)

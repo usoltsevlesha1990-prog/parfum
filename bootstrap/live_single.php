@@ -12,7 +12,15 @@ function money($value): string {
     [$whole, $fraction] = array_pad(explode('.', (string) $value, 2), 2, '00');
     return preg_replace('/\B(?=(\d{3})+(?!\d))/', ' ', $whole) . ($fraction !== '00' ? ',' . $fraction : '') . ' ₽';
 }
-function linkTo(array $parameters = []): string { return '/' . ($parameters ? '?' . http_build_query($parameters) : ''); }
+function linkTo(array $parameters = []): string
+{
+    $brand = $parameters['brand'] ?? '';
+    unset($parameters['brand']);
+    if (($parameters['page'] ?? null) == 1) { unset($parameters['page']); }
+    if (($parameters['q'] ?? null) === '') { unset($parameters['q']); }
+    $path = $brand !== '' ? '/' . rawurlencode($brand) . '/' : '/';
+    return $path . ($parameters ? '?' . http_build_query($parameters) : '');
+}
 function productUrl(string $sku, string $brandSlug): string
 {
     $name = $sku;
@@ -113,7 +121,7 @@ function database(): PDO {
     $pdo->exec('SET SESSION TRANSACTION READ ONLY');
     return $pdo;
 }
-$message=null; $product=null; $query=''; $brand=''; $page=1; $brands=[]; $prices=[]; $items=[]; $total=0; $pages=1;
+$currentBrand=null; $message=null; $product=null; $query=''; $brand=''; $page=1; $brands=[]; $prices=[]; $items=[]; $total=0; $pages=1;
 try {
     if (!in_array($_SERVER['REQUEST_METHOD'],['GET','HEAD'],true)) { header('Allow: GET, HEAD'); http_response_code(405); $message='Метод не поддерживается'; }
     else {
@@ -124,13 +132,14 @@ try {
         if (strlen($query)>480 || preg_match('//u',$query)!==1 || strlen($brand)>60 || !preg_match('/^[a-zA-Z0-9_-]*$/D',$brand) || strlen($sku)>150 || !preg_match('/^[a-zA-Z0-9_-]*$/D',$sku) || !preg_match('/^[1-9][0-9]{0,5}$/D',$rawPage)) { throw new InvalidArgumentException(); }
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
         $route = [];
-        if (!is_string($path) || (!in_array($path, ['/', '/index.php'], true) && !preg_match('~^/([a-z0-9-]+)/([a-z0-9-]+)/?$~D', $path, $route))) {
+        if (!is_string($path) || (!in_array($path, ['/', '/index.php'], true) && !preg_match('~^/([a-z0-9-]+)(?:/([a-z0-9-]+))?/?$~D', $path, $route))) {
             http_response_code(404); $message='Страница не найдена';
         }
         $repo=new CatalogRepository(database());
         foreach ($repo->brands() as $b) { $brands[$b['id']]=$b; }
-        if ($message === null && ($sku!=='' || $route)) {
-            $product=$route ? $repo->productAtPath($route[1],$route[2]) : $repo->product($sku);
+        if ($route && !isset($route[2])) { $brand=$route[1]; }
+        if ($message === null && ($sku!=='' || isset($route[2]))) {
+            $product=isset($route[2]) ? $repo->productAtPath($route[1],$route[2]) : $repo->product($sku);
             if ($product===null) { http_response_code(404); $message='Аромат не найден'; }
             else {
                 $canonical = productUrl($product['sku'], $product['brand_slug']);
@@ -140,12 +149,19 @@ try {
                 $prices[$product['id']]=$product['variants'];
             }
         } elseif ($message === null) {
+            if ($brand !== '') {
+                foreach ($brands as $candidate) { if ($candidate['slug'] === $brand) { $currentBrand=$candidate; break; } }
+                if ($currentBrand === null) { http_response_code(404); $message='Бренд не найден'; }
+                elseif ($path !== '/' . $brand . '/' || isset($_GET['brand'])) {
+                    http_response_code(301); header('Location: ' . linkTo(['brand'=>$brand,'q'=>$query,'page'=>(int)$rawPage])); exit;
+                }
+            }
             $catalog=$repo->search($query,$brand,(int)$rawPage);
             $items=$catalog['items']; $total=$catalog['total']; $page=$catalog['page']; $pages=$catalog['pages'];
         }
     }
 } catch (InvalidArgumentException $error) { http_response_code(400); $message='Некорректные параметры'; }
 catch (Throwable $error) { http_response_code(503); header('X-Catalog-Error: ' . ($error instanceof PDOException ? 'MYSQL-' . (int) ($error->errorInfo[1] ?? 0) : (str_contains($error->getMessage(), 'Missing database config') ? 'CONFIG-MISSING' : 'CONFIG-ERROR'))); error_log('PARFUM PLACE MySQL request failed: '.get_class($error)); $message='Каталог временно недоступен. Проверьте подключение к MySQL.'; }
-$title=$product ? $brands[$product['brand_id']]['name'].' — '.$product['name'] : 'Каталог ароматов';
+$title=$product ? $brands[$product['brand_id']]['name'].' — '.$product['name'] : ($currentBrand['name'] ?? 'Каталог ароматов');
 if ($_SERVER['REQUEST_METHOD']==='HEAD') { exit; }
 ?>
