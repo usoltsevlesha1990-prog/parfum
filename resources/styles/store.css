@@ -120,3 +120,116 @@ body{background:#fff;color:var(--ink)}
 .footer{padding-top:50px}
 @media(max-width:900px){.header{grid-template-columns:50px 1fr 80px;gap:10px}.luxury-header-nav{display:none}.fresh-hero-inner{min-height:510px}.fresh-art{height:510px}.luxury-perfume-stage{top:14%;left:10%;width:85%;height:72%}.luxury-promo-panel{min-height:300px}}
 @media(max-width:600px){.luxury-topbar .wrap{font-size:9px;letter-spacing:.5px}.header{height:76px;grid-template-columns:44px 1fr 64px}.wordmark{font-size:20px;letter-spacing:2px}.header-contact{font-size:10px}.fresh-hero-inner{min-height:0}.fresh-copy{padding:38px 0 10px}.luxury-index{margin-bottom:23px;font-size:9px}.fresh-copy h1{font-size:clamp(44px,11vw,63px)}.fresh-art{height:320px}.luxury-perfume-stage{top:0;left:19%;width:67%;height:90%}.luxury-side-caption{right:3%;bottom:19%}.luxury-hero-foot{width:calc(100% - 28px);font-size:8px;letter-spacing:.5px}.luxury-hero-foot span:nth-child(2){display:none}.home-brands{padding-top:57px;padding-bottom:57px}.brand-tile{min-height:105px}.home-featured .feature-track .card-photo{height:210px}.luxury-split-promo{grid-template-columns:1fr;margin-top:45px}.luxury-promo-panel{min-height:250px;padding:27px}.luxury-promo-panel strong{font-size:42px}.luxury-water-ornament{font-size:37px}.luxury-footer-brand span{font-size:23px;letter-spacing:3px}}
+
+
+/* Fresh Luxury 2.2 — Bold Blue, compact editorial refinement. */
+:root{--accent:#14518c;--ink:#182b40;--muted:#62788c;--line:#d9e8f3;--wash:#f5faff}
+body{background:linear-gradient(180deg,#f8fbfe 0,#fff 34%,#f4f9fd 100%);color:var(--ink)}
+a:focus-visible,summary:focus-visible{outline-color:#2679ba}
+.luxury-topbar{background:#102f50;color:#e1f2fc}
+.luxury-topbar a{color:#9ed7f4}
+.header{height:78px;border-bottom-color:#d9e8f3}
+.menu summary,.header-contact,.luxury-header-nav a:hover{color:#14518c}
+.header-contact{border:1px solid #b7d4e9;padding:9px 14px}
+.fresh-hero{background:radial-gradient(ellipse at 76% 48%,#c4e5f7 0%,#e4f3fb 34%,#f4f9fd 63%,#fff 100%)}
+.fresh-hero-inner{min-height:490px;grid-template-columns:46% 54%}
+.fresh-copy{padding:42px 0 56px}
+.fresh-copy h1{font-size:clamp(48px,5.2vw,76px);line-height:1.04;margin:14px 0 17px}
+.fresh-copy>p:not(.eyebrow){color:#526e84;line-height:1.65}
+.fresh-copy .primary-button,.primary-button{background:#14518c;border-radius:3px;box-shadow:0 8px 20px #14518c2c}
+.fresh-copy .primary-button:hover,.primary-button:hover{background:#0d3c69}
+.fresh-art{height:490px}
+.fresh-art:before{background:radial-gradient(circle at 40% 32%,#fff 0%,#dff2fc 28%,#9ccce5 57%,#effaff 76%);box-shadow:0 24px 60px #2679ba35}
+.luxury-index{color:#426d89;margin-bottom:25px}
+.luxury-index span{background:#2679ba}
+.luxury-side-caption,.luxury-hero-foot{color:#426d89}
+.luxury-hero-foot{padding:11px 0;border-top-color:#8bbbd64d}
+.home-brands{padding-top:48px;padding-bottom:48px;margin-bottom:0}
+.home-brands .section-heading h2{font-size:clamp(30px,3.4vw,45px)}
+.home-brands .brand-carousel{gap:10px}
+.brand-tile{min-height:112px;padding:14px 10px;background:linear-gradient(145deg,#fff,#edf6fc);border-color:#d4e7f4}
+.brand-tile:hover{border-color:#6eadd4;background:#eaf5fc}
+.brand-wordmark{color:#173f62}
+.home-featured{padding-top:38px;padding-bottom:38px}
+.home-featured .section-heading{margin-bottom:14px}
+.home-featured .section-heading h2{font-size:clamp(29px,3.3vw,43px)}
+.home-featured .feature-track{gap:11px}
+.home-featured .feature-track .card{flex-basis:calc((100% - 33px)/4);border:1px solid #dce9f2;background:#fff;padding:9px;box-shadow:0 5px 18px #173e5b09}
+.home-featured .feature-track .card:hover{border-color:#8dbfdf;box-shadow:0 14px 32px #174c7118}
+.home-featured .feature-track .card-photo{height:245px;background:radial-gradient(circle at 45% 20%,#fff,#eef7fc 65%,#deedf7);padding:9px}
+.home-featured .feature-track .card-photo img{object-fit:contain}
+.home-featured .feature-track .card-brand{color:#2679ba;font-size:10px;letter-spacing:1.5px}
+.home-featured .feature-track .card-name{font-size:19px;line-height:1.25;margin-top:3px}
+.home-featured .feature-track .card-volume{font-size:11px;color:#71879a}
+.home-featured .feature-track .card-price{font-size:20px;color:#14518c;margin:5px 0}
+.home-featured .feature-track .outline-button{color:#14518c;border-bottom:1px solid #9cc7e2;padding:7px 0}
+.fresh-arrow{border-color:#a9cce2;color:#14518c}
+.fresh-arrow:hover{background:#14518c;color:white}
+.fresh-arrow-hint,.home-featured .swipe-hint{color:#52758e}
+.fresh-editorial{padding:48px 0;background:linear-gradient(120deg,#eaf5fb,#f4f9fd)}
+.fresh-editorial-inner{gap:5%}
+.fresh-water{height:310px;background:radial-gradient(circle at 15% 15%,#fff 0%,transparent 48%),linear-gradient(135deg,#9fcde5,#e5f7fc 52%,#76afd0);border-radius:5px}
+.fresh-story h2,.fresh-catalog-cta h2{font-size:clamp(32px,3.5vw,48px);margin:8px 0 14px}
+.fresh-story>p:not(.eyebrow),.fresh-catalog-cta p:not(.eyebrow){line-height:1.65}
+.luxury-split-promo{gap:12px;margin:42px 0 0}
+.luxury-promo-panel{min-height:260px;padding:27px;border-radius:4px}
+.luxury-promo-blue{background:linear-gradient(125deg,#0f477b,#14518c 58%,#2679ba);color:#fff}
+.luxury-promo-blue .luxury-promo-overline,.luxury-promo-blue .luxury-promo-action{color:#d9effc;border-color:#9bc8e5}
+.luxury-promo-blue:before{border-color:#ffffff70;box-shadow:0 0 0 28px #ffffff20,0 0 0 60px #ffffff12,0 0 0 98px #ffffff0a}
+.luxury-promo-light{background:linear-gradient(125deg,#f8fcff,#d9edf8 85%);color:#173f62}
+.luxury-promo-light .luxury-promo-action{color:#14518c;border-color:#14518c}
+.fresh-catalog-cta{margin:42px 0;padding:28px 32px;border-color:#c9dfed;border-radius:4px;background:linear-gradient(115deg,#fff,#eaf5fb)}
+.fresh-catalog-cta h2{margin:5px 0 9px}
+.fresh-catalog-cta .primary-button{margin-top:0}
+.fresh-benefits{gap:10px;margin-bottom:44px}
+.fresh-benefits a{border-radius:4px;padding:19px;background:#f8fbfe;border-color:#d8e8f3;gap:9px}
+.fresh-benefits strong{font-size:20px;color:#173f62}
+.fresh-benefits span{color:#627f95}
+.footer{margin-top:20px;padding-top:32px;border-top-color:#d9e8f3}
+.luxury-footer-brand span{color:#173f62}
+.luxury-footer-brand p{color:#71899c}
+.footer nav a{color:#42627b}
+.footer small{color:#8198aa}
+.manager{background:#14518c;box-shadow:0 4px 16px #14518c38}
+.detail .breadcrumb,.breadcrumb{color:#14518c}
+.variants td:last-child{color:#14518c}
+@media(max-width:900px){
+ .fresh-hero-inner{min-height:420px}
+ .fresh-art{height:420px}
+ .home-featured .feature-track .card{flex-basis:calc((100% - 22px)/3)}
+ .home-featured .feature-track .card-photo{height:220px}
+ .luxury-promo-panel{min-height:235px}
+}
+@media(max-width:600px){
+ .luxury-topbar{background:#102f50}
+ .header{height:68px}
+ .fresh-hero-inner{min-height:0}
+ .fresh-copy{padding:31px 0 7px}
+ .luxury-index{margin-bottom:18px}
+ .fresh-copy h1{font-size:clamp(43px,10.5vw,59px);margin:10px 0 13px}
+ .fresh-copy>p:not(.eyebrow){font-size:13px}
+ .fresh-art{height:270px}
+ .luxury-perfume-stage{top:0;left:19%;width:67%;height:90%}
+ .luxury-hero-foot{padding:9px 0;font-size:8px}
+ .home-brands{padding:34px 14px;margin:0 calc(50% - 50vw)}
+ .brand-tile{min-height:88px;padding:11px 7px}
+ .brand-tile small{font-size:9px}
+ .home-featured{padding:30px 0}
+ .home-featured .feature-track{gap:8px}
+ .home-featured .feature-track .card{flex-basis:calc((100% - 8px)/2);padding:7px}
+ .home-featured .feature-track .card-photo{height:166px;padding:6px}
+ .home-featured .feature-track .card-name{font-size:16px}
+ .home-featured .feature-track .card-price{font-size:18px}
+ .fresh-editorial{padding:34px 0}
+ .fresh-editorial-inner{gap:18px}
+ .fresh-water{height:225px}
+ .fresh-story h2{font-size:34px}
+ .luxury-split-promo{grid-template-columns:1fr;margin-top:30px;gap:9px}
+ .luxury-promo-panel{min-height:195px;padding:21px}
+ .luxury-promo-panel strong{font-size:37px}
+ .fresh-catalog-cta{margin:30px 0;padding:21px;display:block}
+ .fresh-catalog-cta .primary-button{margin-top:12px}
+ .fresh-benefits{grid-template-columns:1fr;margin-bottom:32px}
+ .fresh-benefits a{padding:16px}
+ .footer{padding-top:27px}
+}
