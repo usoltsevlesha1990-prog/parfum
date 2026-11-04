@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow"><meta name="theme-color" content="#7a3045">
+<meta name="robots" content="noindex, nofollow"><meta name="theme-color" content="#14518c">
 <title><?= e($title) ?> — PARFUM PLACE</title>
 <?php if ($product !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e(productUrl($product['sku'],$product['brand_slug'])) ?>">
 <?php elseif ($currentBrand !== null): ?><link rel="canonical" href="https://parfumplace.ru<?= e(linkTo(['brand'=>$brand,'page'=>$page,'q'=>$query])) ?>">
