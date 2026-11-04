@@ -233,3 +233,73 @@ a:focus-visible,summary:focus-visible{outline-color:#2679ba}
  .fresh-benefits a{padding:16px}
  .footer{padding-top:27px}
 }
+
+/* Deep Blue Luxury: cinematic desktop storefront, limited to hero + brands + footer */
+.deep-home{background:#061d32;color:#eaf7ff}
+.deep-home .luxury-topbar{background:#04182b;border-bottom:1px solid #5cbaf32b;color:#9fc4da}
+.deep-home .luxury-topbar a{color:#b8e4ff}
+.deep-home .header{border-bottom:1px solid #5bb9ed30;background:#061d32;color:#eaf7ff}
+.deep-home .wordmark{color:#fff}
+.deep-home .luxury-header-nav a{color:#e1f2ff}
+.deep-home .luxury-header-nav a:hover{color:#39bcff}
+.deep-home .header-contact{color:#d9f4ff;border-color:#1874ad;background:#0c3c62}
+.deep-home .menu summary{color:#eaf7ff}
+.deep-home .menu nav{background:#0a2943;border:1px solid #23658e}
+.deep-home .menu nav a{color:#fff}
+.deep-home main.wrap{max-width:none;width:100%;padding:0}
+.deep-showcase{width:100%;background:#04182b}
+.deep-carousel{position:relative;overflow:hidden;isolation:isolate;outline-offset:-4px}
+.deep-track{display:flex;transition:transform .75s cubic-bezier(.2,.75,.15,1);will-change:transform}
+.deep-slide{position:relative;display:grid;grid-template-columns:46% 54%;flex:0 0 100%;height:min(720px,calc(100vh - 125px));min-height:550px;overflow:hidden;background:radial-gradient(ellipse at 75% 45%,#08699d 0,#083a60 34%,#061d32 75%)}
+.deep-slide:before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,#04182b55 0,transparent 65%),radial-gradient(ellipse at 79% 55%,#00a6e83b,transparent 43%);pointer-events:none}
+.deep-slide-content{position:relative;z-index:3;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:48px 0 105px max(8vw,calc((100vw - 1320px)/2));max-width:700px}
+.deep-kicker{font-size:12px;letter-spacing:.3em;color:#b9e7ff;font-weight:500;margin:0 0 30px}
+.deep-kicker span{color:#0ab2f1;margin-left:10px}
+.deep-slide h1{font:normal clamp(54px,6.8vw,110px)/.98 Georgia,serif;color:#fff;letter-spacing:-.045em;margin:0 0 22px;text-wrap:balance;text-shadow:0 5px 28px #0005}
+.deep-house{font-size:18px;letter-spacing:.44em;text-transform:uppercase;color:#d5eaff;margin:0 0 24px}
+.deep-description{font-size:18px;line-height:1.65;color:#d0e1ef;max-width:430px;margin:0 0 32px}
+.deep-action{display:inline-flex;align-items:center;gap:34px;padding:15px 23px;color:#fff;background:linear-gradient(135deg,#0879ba,#035087);border:1px solid #12b9ff;border-radius:10px;text-decoration:none;box-shadow:0 0 20px #00a6e855,inset 0 1px 8px #5cdbff38}
+.deep-action:hover{background:#087fbf;box-shadow:0 0 32px #00a6e890}
+.deep-slide-art{position:relative;display:grid;place-items:center;overflow:hidden}
+.deep-orbit{position:absolute;inset:6% 9% 11% 2%;border-radius:50%;background:radial-gradient(ellipse at center,#00a6e820 0,#1bbaff0c 35%,transparent 67%);box-shadow:0 0 100px #00a6e833}
+.deep-beam{position:absolute;inset:-20% -40% 0 0;transform:rotate(35deg);background:linear-gradient(90deg,transparent 38%,#29c4ff08 47%,#30c7ff44 50%,#4fdbff05 54%,transparent 64%);filter:blur(18px)}
+.deep-horizon{position:absolute;bottom:12%;left:-10%;right:-10%;height:16%;border-radius:50%;border-top:2px solid #7ee3ff8c;box-shadow:0 -14px 0 -12px #4bcaff5e,0 -34px 0 -32px #d4f8ff55,0 30px 65px #00a6e866;transform:rotate(-2deg)}
+.deep-slide-art img{position:relative;z-index:2;width:min(74%,580px);height:78%;object-fit:contain;filter:drop-shadow(16px 30px 30px #0009)}
+.deep-missing-bottle{position:relative;z-index:2;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;width:220px;height:340px;padding:18px;border:3px solid #a3eaff;border-radius:30px 30px 20px 20px;background:linear-gradient(95deg,#073a63,#3da5d6 45%,#062b4b);box-shadow:25px 35px 50px #0008;color:#fff}
+.deep-missing-bottle:before{content:"";position:absolute;top:-57px;width:90px;height:55px;background:linear-gradient(90deg,#04182b,#14518c,#04182b);border-radius:9px 9px 0 0}
+.deep-missing-bottle span{font-size:12px;letter-spacing:.2em;text-transform:uppercase}
+.deep-missing-bottle strong{font:25px Georgia;margin-top:12px}
+.deep-arrow{position:absolute;z-index:5;top:48%;width:52px;height:52px;border:1px solid #91dfff7c;border-radius:50%;background:#0b3e5e8c;color:#fff;font-size:38px;line-height:1;cursor:pointer;backdrop-filter:blur(8px)}
+.deep-arrow:hover{background:#0879ba}
+.deep-prev{left:28px}.deep-next{right:28px}
+.deep-dots{position:absolute;z-index:5;bottom:32px;left:0;right:0;display:flex;justify-content:center;gap:12px}
+.deep-dot{width:10px;height:10px;border:0;border-radius:50%;background:#a2bcd1a8;cursor:pointer;padding:0}
+.deep-dot.is-active{background:#00a6e8;box-shadow:0 0 12px #00a6e8}
+.deep-home .home-brands{max-width:1320px;width:calc(100% - 70px);margin:0 auto;padding:38px 0 45px}
+.deep-home .home-brands .section-heading h2{color:#fff;font-size:35px}
+.deep-home .home-brands .eyebrow{color:#5fc6ff}
+.deep-home .home-brands .text-link{color:#8bd8ff}
+.deep-home .brand-carousel{gap:10px}
+.deep-home .brand-tile{min-height:98px;background:linear-gradient(135deg,#0b3555,#08253e);border:1px solid #21648b}
+.deep-home .brand-tile:hover{background:#104c76;border-color:#16a6e6}
+.deep-home .brand-wordmark{color:#fff}
+.deep-home .brand-tile small{color:#8fc5e3}
+.deep-home .footer{max-width:none;width:100%;padding:35px max(35px,calc((100vw - 1320px)/2));background:#04182b;border-top:1px solid #1d5e83;color:#b8d6e9;margin:0}
+.deep-home .luxury-footer-brand span{color:#fff}
+.deep-home .luxury-footer-brand p,.deep-home .footer small{color:#86abc4}
+.deep-home .footer nav a{color:#c7e6fa}
+.deep-home .manager{background:#0879ba}
+@media(max-width:900px){.deep-slide{min-height:510px;height:590px}.deep-slide-content{padding-left:7vw}.deep-slide h1{font-size:clamp(46px,7vw,72px)}.deep-description{font-size:16px}.deep-slide-art img{width:88%}}
+@media(max-width:600px){.deep-slide{display:flex;flex-direction:column-reverse;height:auto;min-height:0}.deep-slide-art{height:260px;flex:0 0 260px}.deep-slide-art img{height:230px;width:70%}.deep-slide-content{padding:22px 28px 74px}.deep-kicker{font-size:9px;margin-bottom:14px}.deep-slide h1{font-size:44px}.deep-house{font-size:12px;margin-bottom:13px}.deep-description{font-size:14px;margin-bottom:18px}.deep-arrow{width:35px;height:35px;font-size:25px;top:30%}.deep-prev{left:9px}.deep-next{right:9px}.deep-dots{bottom:23px;gap:9px}.deep-dot{width:8px;height:8px}.deep-home .home-brands{width:calc(100% - 30px);padding:30px 0}.deep-home .home-brands .section-heading h2{font-size:27px}.deep-home .footer{padding:30px 15px}}
+@media(prefers-reduced-motion:reduce){.deep-track{transition:none}}
+
+/* Five approved cinematic image slides: desktop-first, actual links over artwork */
+.deep-home .deep-image-slide{display:block;min-height:0;height:auto;aspect-ratio:1670/722;background:#04182b}
+.deep-home .deep-banner-image{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.deep-home .deep-banner-link{position:absolute;z-index:4;left:10.8%;top:72%;width:21%;height:11%;border-radius:9px}
+.deep-home .deep-banner-link:focus-visible{outline:3px solid #3ed1ff;outline-offset:3px}
+.deep-home .deep-arrow{top:45%;background:#0a3c60bf;border-color:#4dbcf4}
+.deep-home .deep-dots{bottom:14px}
+.deep-home .deep-dot{width:11px;height:11px}
+@media(min-width:1400px){.deep-home .deep-image-slide{max-height:740px}}
+@media(max-width:700px){.deep-home .deep-image-slide{aspect-ratio:1670/722;min-height:0}.deep-home .deep-banner-link{top:72%;height:13%}.deep-home .deep-arrow{top:43%;width:29px;height:29px;font-size:21px}.deep-home .deep-dots{bottom:5px;gap:7px}.deep-home .deep-dot{width:7px;height:7px}}
