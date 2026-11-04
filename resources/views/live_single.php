@@ -11,11 +11,12 @@
 </head>
 <body>
 <a class="skip" href="#main">Перейти к содержимому</a>
+<div class="luxury-topbar"><div class="wrap"><span>PARFUM PLACE · КОЛЛЕКЦИЯ ПАРФЮМЕРИИ</span><a href="/delivery.html">Доставка и условия ↗</a></div></div>
 <header class="header wrap">
 <details class="menu"><summary aria-label="Открыть меню"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg></summary>
 <nav aria-label="Основное меню"><a href="/">Главная</a><a href="/catalog.html">Каталог</a><?php foreach ($staticPages as $url=>$label): ?><a href="<?= e($url) ?>"><?= e($label) ?></a><?php endforeach; ?></nav></details>
 <a class="wordmark" href="/" aria-label="PARFUM PLACE — главная">PARFUM PLACE</a>
-<a class="header-contact" href="/contacts.html">Контакты</a>
+<nav class="luxury-header-nav" aria-label="Быстрые ссылки"><a href="/catalog.html">Каталог</a><a href="/about.html">О нас</a><a href="/contacts.html">Контакты</a></nav><a class="header-contact" href="/contacts.html">Связаться ↗</a>
 </header>
 <main id="main" class="wrap">
 <?php if ($message !== null): ?>
@@ -45,7 +46,7 @@
 <?php else: ?>
 <!-- Актуальный каталог из MySQL. -->
 <?php if ($isHome): ?>
-<section class="fresh-hero" aria-labelledby="fresh-title"><div class="fresh-hero-inner"><div class="fresh-copy"><p class="eyebrow">Коллекция мировых парфюмерных домов</p><h1 id="fresh-title">Искусство<br>выбирать аромат</h1><p>Знаковые композиции. Чистая эстетика. Пространство, где каждый аромат обретает свою историю.</p><a class="primary-button" href="/catalog.html">Смотреть коллекцию <span aria-hidden="true">↗</span></a></div><div class="fresh-art" aria-hidden="true"><div class="fresh-glass"></div><div class="fresh-ripples"></div><div class="fresh-glow"></div></div></div></section>
+<section class="fresh-hero" aria-labelledby="fresh-title"><div class="fresh-hero-inner"><div class="fresh-copy"><div class="luxury-index">01 / 03 <span></span> ПАРФЮМЕРНАЯ КОЛЛЕКЦИЯ</div><p class="eyebrow">Коллекция мировых парфюмерных домов</p><h1 id="fresh-title">Искусство<br>выбирать аромат</h1><p>Знаковые композиции. Чистая эстетика. Пространство, где каждый аромат обретает свою историю.</p><a class="primary-button" href="/catalog.html">Смотреть коллекцию <span aria-hidden="true">↗</span></a></div><div class="fresh-art" aria-hidden="true"><div class="fresh-glass"></div><div class="fresh-ripples"></div><div class="fresh-glow"></div><div class="luxury-perfume-stage"><img src="/pict/25/3-5cde517fe19d1f47.jpg" alt="" width="480" height="480"></div><span class="luxury-side-caption">CREED · AVENTUS</span></div></div><div class="luxury-hero-foot"><span>Искусство деталей</span><span>01 — 02 — 03</span><span>Откройте коллекцию ↓</span></div></section>
 <?php else: ?>
 <section class="hero"><p class="eyebrow">Коллекция PARFUM PLACE</p>
 <?php if ($currentBrand !== null): ?><h1><?= e($currentBrand['name']) ?></h1><p>Найдите свой аромат в коллекции бренда</p>
@@ -53,7 +54,7 @@
 <?php else: ?><h1>Коллекция ароматов</h1><p>Парфюмерия мировых брендов</p><?php endif; ?></section>
 <?php endif; ?>
 <?php if ($isHome): ?>
-<section class="home-brands" aria-labelledby="brand-title"><div class="section-heading"><div><p class="eyebrow">Знакомые имена. Разные характеры.</p><h2 id="brand-title">Парфюмерные дома</h2></div><a class="text-link" href="/catalog.html">Все бренды ↗</a></div>
+<section class="home-brands" aria-labelledby="brand-title"><div class="section-heading"><div><p class="eyebrow">Знакомые имена. Разные характеры.</p><h2 id="brand-title">Мир великих<br>парфюмерных домов</h2></div><a class="text-link" href="/catalog.html">Все бренды ↗</a></div>
 <nav class="brand-carousel" aria-label="Парфюмерные дома">
 <?php foreach($brands as $b): if($b['slug']==='prochie') { continue; } ?><a class="brand-tile brand-<?= e($b['slug']) ?>" data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>"><span class="brand-wordmark"><?= e($b['name']) ?></span><small><?= e(aromaCount((int)$b['product_count'])) ?></small></a><?php endforeach; ?>
 </nav>
@@ -61,7 +62,7 @@
 <?php else: ?>
 <nav class="brand-tabs" aria-label="Бренды"><a href="/catalog.html" <?= $brand==='' ? 'aria-current="page"' : '' ?>>Все бренды</a><?php foreach($brands as $b): ?><a data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>" <?= $brand===$b['slug'] ? 'aria-current="page"' : '' ?>><?= e($b['name']) ?></a><?php endforeach; ?></nav>
 <?php endif; ?>
-<section class="<?= $isHome ? 'home-featured' : 'catalog-section' ?>" aria-labelledby="collection-title"><div class="section-heading"><div><?php if($isHome): ?><p class="eyebrow">Выбор PARFUM PLACE</p><?php endif; ?><h2 id="collection-title"><?= $isHome ? 'ТОП ароматов' : 'Коллекция ароматов' ?></h2></div><?php if($isHome): ?><div class="fresh-arrows" aria-label="Управление подборкой"><a href="#collection-title" class="fresh-arrow" aria-label="К началу подборки">↖</a><span class="fresh-arrow-hint">Листайте карточки →</span></div><?php else: ?><span class="muted"><?= e(aromaCount((int)$total)) ?></span><?php endif; ?></div>
+<section class="<?= $isHome ? 'home-featured' : 'catalog-section' ?>" aria-labelledby="collection-title"><div class="section-heading"><div><?php if($isHome): ?><p class="eyebrow">Выбор PARFUM PLACE</p><?php endif; ?><h2 id="collection-title"><?= $isHome ? 'Ароматы в центре внимания' : 'Коллекция ароматов' ?></h2></div><?php if($isHome): ?><span class="fresh-arrow-hint">Листайте подборку →</span><?php else: ?><span class="muted"><?= e(aromaCount((int)$total)) ?></span><?php endif; ?></div>
 <?php if (!$items): ?><div class="empty"><p>Ароматы не найдены.</p><a href="/catalog.html">Вся коллекция</a></div><?php endif; ?>
 <div class="<?= $isHome ? 'feature-track' : 'grid' ?>"<?= $isHome ? ' tabindex="0" role="region" aria-label="Подборка ароматов — листайте горизонтально"' : '' ?>>
 <?php foreach($items as $cardIndex=>$p): $photos=productImages($p['sku'],(int)$p['id']); ?>
@@ -78,12 +79,13 @@
 <?php endif; ?>
 </section>
 <?php if ($isHome): ?>
-<section class="fresh-editorial" aria-labelledby="fresh-story-title"><div class="fresh-editorial-inner"><div class="fresh-water" aria-hidden="true"><div class="fresh-water-glass"></div></div><div class="fresh-story"><p class="eyebrow">Свет. Стекло. Вода.</p><h2 id="fresh-story-title">У каждого аромата своя история</h2><p>От свежих цитрусовых аккордов до глубоких древесных композиций. Откройте мир ароматов в собственном ритме.</p><a class="text-link" href="/catalog.html">Исследовать коллекцию ↗</a></div></div></section>
+<section class="fresh-editorial" aria-labelledby="fresh-story-title"><div class="fresh-editorial-inner"><div class="fresh-water" aria-hidden="true"><div class="fresh-water-glass"></div><div class="luxury-water-ornament">PARFUM<br>PLACE</div></div><div class="fresh-story"><p class="eyebrow">Свет. Стекло. Вода.</p><h2 id="fresh-story-title">У каждого аромата своя история</h2><p>От свежих цитрусовых аккордов до глубоких древесных композиций. Откройте мир ароматов в собственном ритме.</p><a class="text-link" href="/catalog.html">Исследовать коллекцию ↗</a></div></div></section>
+<section class="luxury-split-promo" aria-label="Откройте коллекцию"><a href="/catalog.html" class="luxury-promo-panel luxury-promo-blue"><span class="luxury-promo-overline">ВЫБОР PARFUM PLACE / 01</span><strong>Ваш аромат.<br>Ваш характер.</strong><span class="luxury-promo-action">Исследовать коллекцию ↗</span></a><a href="/catalog.html" class="luxury-promo-panel luxury-promo-light"><span class="luxury-promo-overline">КОЛЛЕКЦИЯ / 02</span><strong>Откройте<br>новые грани.</strong><span class="luxury-promo-action">Все ароматы ↗</span></a></section>
 <section class="fresh-catalog-cta"><div><p class="eyebrow">Вся коллекция</p><h2>Найдите свой аромат</h2><p>Парфюмерные дома, характеры и настроения — в одном каталоге.</p></div><a class="primary-button" href="/catalog.html">Открыть каталог ↗</a></section>
 <section class="fresh-benefits" aria-label="Информация о магазине"><a href="/catalog.html"><strong>Коллекция брендов</strong><span>Откройте любимый парфюмерный дом ↗</span></a><a href="/delivery.html"><strong>Доставка</strong><span>Информация об условиях ↗</span></a><a href="/contacts.html"><strong>Контакты</strong><span>Связаться с магазином ↗</span></a></section>
 <?php endif; ?>
 <?php endif; ?>
 </main>
-<footer class="footer wrap"><nav aria-label="Информация"><?php foreach($staticPages as $url=>$label): ?><a href="<?= e($url) ?>"><?= e($label) ?></a><?php endforeach; ?></nav><small>PARFUM PLACE · <?= date('Y') ?></small></footer>
+<footer class="footer wrap"><div class="luxury-footer-brand"><span>PARFUM PLACE</span><p>Искусство выбирать аромат.</p></div><nav aria-label="Информация"><?php foreach($staticPages as $url=>$label): ?><a href="<?= e($url) ?>"><?= e($label) ?></a><?php endforeach; ?></nav><small>PARFUM PLACE · <?= date('Y') ?></small></footer>
 <a class="manager" href="/contacts.html" aria-label="Связаться с менеджером"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a8 8 0 0 1-8 8 9 9 0 0 1-3.5-.7L4 20l1.2-4.5a8 8 0 1 1 14.8-4z"/><path d="M8 11h.01M12 11h.01M16 11h.01" stroke-linecap="round" stroke-width="2"/></svg></a>
 </body></html>
