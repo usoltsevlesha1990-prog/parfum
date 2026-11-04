@@ -47,19 +47,8 @@
 <!-- Актуальный каталог из MySQL. -->
 <?php if ($isHome): ?>
 <?php
-$topTenIds = [25,73,57,74,7,41,17,75,8,2];
-$topTenCopy = [
-  25=>'Сила характера. Свежие фруктовые аккорды и выразительный древесный шлейф.',
-  73=>'Многогранная коллекция цветочных композиций. Найдите своё настроение.',
-  57=>'Свежесть, пряности и уверенная энергия современного аромата.',
-  74=>'Глубокий кофейный аккорд, белые цветы и притягательная ваниль.',
-  7=>'Древесная элегантность и свежесть, неподвластная времени.',
-  41=>'Узнаваемая амбровая композиция с воздушным сиянием.',
-  17=>'Сияющая цветочная композиция, созданная для особенных моментов.',
-  75=>'Свобода воображения: свежесть цитрусов и прозрачная глубина.',
-  8=>'Тёплый табак, пряности и мягкая ваниль в выразительном сочетании.',
-  2=>'Вишня, миндаль и насыщенные древесные оттенки.'
-];
+$topTenIds = [25,73,57,74,7];
+$heroImages = [25=>'01-creed-aventus.webp',73=>'02-chanel-chance.webp',57=>'03-dior-sauvage.webp',74=>'04-ysl-black-opium.webp',7=>'05-bleu-de-chanel.webp'];
 $topTen = [];
 foreach ($topTenIds as $topId) {
   foreach ($items as $candidate) {
@@ -70,18 +59,11 @@ foreach ($topTenIds as $topId) {
 <section class="deep-showcase" aria-label="Популярные ароматы">
 <div class="deep-carousel" id="deep-carousel" tabindex="0" aria-roledescription="карусель" aria-label="Ароматы по запросам покупателей">
 <div class="deep-track">
-<?php foreach ($topTen as $slideIndex=>$p): $slidePhotos=productImages($p['sku'],(int)$p['id']); ?>
-<article class="deep-slide" aria-roledescription="слайд" aria-label="<?= e($brands[$p['brand_id']]['name'].' '.$p['name']) ?>" aria-hidden="<?= $slideIndex===0 ? 'false':'true' ?>">
-<div class="deep-slide-content">
-<p class="deep-kicker">ПОПУЛЯРНЫЕ АРОМАТЫ <span aria-hidden="true">━━</span></p>
-<h1><?= e($p['name']) ?></h1>
-<p class="deep-house"><?= e($brands[$p['brand_id']]['name']) ?></p>
-<p class="deep-description"><?= e($topTenCopy[(int)$p['id']] ?? '') ?></p>
-<a class="deep-action" href="<?= e(productUrl($p['sku'],$p['brand_slug'])) ?>" <?= $slideIndex!==0 ? 'tabindex="-1"':'' ?>>Посмотреть аромат <span aria-hidden="true">→</span></a>
-</div>
-<div class="deep-slide-art" aria-hidden="true"><div class="deep-orbit"></div><div class="deep-beam"></div><div class="deep-horizon"></div>
-<?php if ($slidePhotos): ?><img src="<?= e($slidePhotos[0]) ?>" alt="" width="520" height="520" loading="<?= $slideIndex===0?'eager':'lazy' ?>" <?= $slideIndex===0?'fetchpriority="high"':'' ?>><?php else: ?><div class="deep-missing-bottle"><span><?= e($brands[$p['brand_id']]['name']) ?></span><strong><?= e($p['name']) ?></strong></div><?php endif; ?>
-</div></article>
+<?php foreach ($topTen as $slideIndex=>$p): ?>
+<article class="deep-slide deep-image-slide" aria-roledescription="слайд" aria-label="<?= e($brands[$p['brand_id']]['name'].' '.$p['name']) ?>" aria-hidden="<?= $slideIndex===0 ? 'false':'true' ?>">
+<img class="deep-banner-image" src="/hero/<?= e($heroImages[(int)$p['id']]) ?>" alt="<?= e($brands[$p['brand_id']]['name'].' '.$p['name']) ?> — рекламный слайд" loading="<?= $slideIndex===0?'eager':'lazy' ?>" <?= $slideIndex===0?'fetchpriority="high"':'' ?> width="1670" height="722">
+<a class="deep-banner-link" href="<?= e(productUrl($p['sku'],$p['brand_slug'])) ?>" aria-label="Посмотреть <?= e($brands[$p['brand_id']]['name'].' '.$p['name']) ?>" <?= $slideIndex!==0?'tabindex="-1"':'' ?>></a>
+</article>
 <?php endforeach; ?>
 </div>
 <?php if(count($topTen)>1): ?>
