@@ -44,20 +44,24 @@
 </div></article>
 <?php else: ?>
 <!-- Актуальный каталог из MySQL. -->
-<section class="hero <?= $isHome ? 'home-hero' : '' ?>"><p class="eyebrow">Коллекция PARFUM PLACE</p>
+<?php if ($isHome): ?>
+<section class="fresh-hero" aria-labelledby="fresh-title"><div class="fresh-hero-inner"><div class="fresh-copy"><p class="eyebrow">Коллекция мировых парфюмерных домов</p><h1 id="fresh-title">Искусство<br>выбирать аромат</h1><p>Знаковые композиции. Чистая эстетика. Пространство, где каждый аромат обретает свою историю.</p><a class="primary-button" href="/catalog.html">Смотреть коллекцию <span aria-hidden="true">↗</span></a></div><div class="fresh-art" aria-hidden="true"><div class="fresh-glass"></div><div class="fresh-ripples"></div><div class="fresh-glow"></div></div></div></section>
+<?php else: ?>
+<section class="hero"><p class="eyebrow">Коллекция PARFUM PLACE</p>
 <?php if ($currentBrand !== null): ?><h1><?= e($currentBrand['name']) ?></h1><p>Найдите свой аромат в коллекции бренда</p>
 <?php elseif ($isHome): ?><h1>Ароматы,<br>которые говорят о вас</h1><p>Знакомьтесь с парфюмерными домами.<br>Выбирайте своё звучание.</p><a class="primary-button" href="/catalog.html">Смотреть коллекцию <span aria-hidden="true">↗</span></a>
 <?php else: ?><h1>Коллекция ароматов</h1><p>Парфюмерия мировых брендов</p><?php endif; ?></section>
+<?php endif; ?>
 <?php if ($isHome): ?>
 <section class="home-brands" aria-labelledby="brand-title"><div class="section-heading"><div><p class="eyebrow">Знакомые имена. Разные характеры.</p><h2 id="brand-title">Парфюмерные дома</h2></div><a class="text-link" href="/catalog.html">Все бренды ↗</a></div>
-<nav class="brand-carousel" aria-label="Лента брендов">
+<nav class="brand-carousel" aria-label="Парфюмерные дома">
 <?php foreach($brands as $b): if($b['slug']==='prochie') { continue; } ?><a class="brand-tile brand-<?= e($b['slug']) ?>" data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>"><span class="brand-wordmark"><?= e($b['name']) ?></span><small><?= e(aromaCount((int)$b['product_count'])) ?></small></a><?php endforeach; ?>
-</nav><p class="swipe-hint">Листайте, чтобы увидеть все бренды <span aria-hidden="true">→</span></p>
+</nav>
 </section>
 <?php else: ?>
 <nav class="brand-tabs" aria-label="Бренды"><a href="/catalog.html" <?= $brand==='' ? 'aria-current="page"' : '' ?>>Все бренды</a><?php foreach($brands as $b): ?><a data-brand-link href="<?= e(linkTo(['brand'=>$b['slug']])) ?>" <?= $brand===$b['slug'] ? 'aria-current="page"' : '' ?>><?= e($b['name']) ?></a><?php endforeach; ?></nav>
 <?php endif; ?>
-<section class="<?= $isHome ? 'home-featured' : 'catalog-section' ?>" aria-labelledby="collection-title"><div class="section-heading"><div><?php if($isHome): ?><p class="eyebrow">Выбор PARFUM PLACE</p><?php endif; ?><h2 id="collection-title"><?= $isHome ? 'ТОП ароматов' : 'Коллекция ароматов' ?></h2></div><?php if(!$isHome): ?><span class="muted"><?= e(aromaCount((int)$total)) ?></span><?php endif; ?></div>
+<section class="<?= $isHome ? 'home-featured' : 'catalog-section' ?>" aria-labelledby="collection-title"><div class="section-heading"><div><?php if($isHome): ?><p class="eyebrow">Выбор PARFUM PLACE</p><?php endif; ?><h2 id="collection-title"><?= $isHome ? 'ТОП ароматов' : 'Коллекция ароматов' ?></h2></div><?php if($isHome): ?><div class="fresh-arrows" aria-label="Управление подборкой"><a href="#collection-title" class="fresh-arrow" aria-label="К началу подборки">↖</a><span class="fresh-arrow-hint">Листайте карточки →</span></div><?php else: ?><span class="muted"><?= e(aromaCount((int)$total)) ?></span><?php endif; ?></div>
 <?php if (!$items): ?><div class="empty"><p>Ароматы не найдены.</p><a href="/catalog.html">Вся коллекция</a></div><?php endif; ?>
 <div class="<?= $isHome ? 'feature-track' : 'grid' ?>"<?= $isHome ? ' tabindex="0" role="region" aria-label="Подборка ароматов — листайте горизонтально"' : '' ?>>
 <?php foreach($items as $cardIndex=>$p): $photos=productImages($p['sku'],(int)$p['id']); ?>
@@ -73,6 +77,11 @@
 <p class="page-caption">Найдено: <?= (int)$total ?>. Страница <?= (int)$page ?> из <?= (int)$pages ?>.</p>
 <?php endif; ?>
 </section>
+<?php if ($isHome): ?>
+<section class="fresh-editorial" aria-labelledby="fresh-story-title"><div class="fresh-editorial-inner"><div class="fresh-water" aria-hidden="true"><div class="fresh-water-glass"></div></div><div class="fresh-story"><p class="eyebrow">Свет. Стекло. Вода.</p><h2 id="fresh-story-title">У каждого аромата своя история</h2><p>От свежих цитрусовых аккордов до глубоких древесных композиций. Откройте мир ароматов в собственном ритме.</p><a class="text-link" href="/catalog.html">Исследовать коллекцию ↗</a></div></div></section>
+<section class="fresh-catalog-cta"><div><p class="eyebrow">Вся коллекция</p><h2>Найдите свой аромат</h2><p>Парфюмерные дома, характеры и настроения — в одном каталоге.</p></div><a class="primary-button" href="/catalog.html">Открыть каталог ↗</a></section>
+<section class="fresh-benefits" aria-label="Информация о магазине"><a href="/catalog.html"><strong>Коллекция брендов</strong><span>Откройте любимый парфюмерный дом ↗</span></a><a href="/delivery.html"><strong>Доставка</strong><span>Информация об условиях ↗</span></a><a href="/contacts.html"><strong>Контакты</strong><span>Связаться с магазином ↗</span></a></section>
+<?php endif; ?>
 <?php endif; ?>
 </main>
 <footer class="footer wrap"><nav aria-label="Информация"><?php foreach($staticPages as $url=>$label): ?><a href="<?= e($url) ?>"><?= e($label) ?></a><?php endforeach; ?></nav><small>PARFUM PLACE · <?= date('Y') ?></small></footer>
