@@ -16,6 +16,7 @@ on:
       - 'resources/**'
       - 'bootstrap/**'
       - 'tools/build_single_php.py'
+      - 'tests/**'
       - '.github/workflows/deploy-review.yml'
 permissions:
   contents: read
