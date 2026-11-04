@@ -292,3 +292,14 @@ a:focus-visible,summary:focus-visible{outline-color:#2679ba}
 @media(max-width:900px){.deep-slide{min-height:510px;height:590px}.deep-slide-content{padding-left:7vw}.deep-slide h1{font-size:clamp(46px,7vw,72px)}.deep-description{font-size:16px}.deep-slide-art img{width:88%}}
 @media(max-width:600px){.deep-slide{display:flex;flex-direction:column-reverse;height:auto;min-height:0}.deep-slide-art{height:260px;flex:0 0 260px}.deep-slide-art img{height:230px;width:70%}.deep-slide-content{padding:22px 28px 74px}.deep-kicker{font-size:9px;margin-bottom:14px}.deep-slide h1{font-size:44px}.deep-house{font-size:12px;margin-bottom:13px}.deep-description{font-size:14px;margin-bottom:18px}.deep-arrow{width:35px;height:35px;font-size:25px;top:30%}.deep-prev{left:9px}.deep-next{right:9px}.deep-dots{bottom:23px;gap:9px}.deep-dot{width:8px;height:8px}.deep-home .home-brands{width:calc(100% - 30px);padding:30px 0}.deep-home .home-brands .section-heading h2{font-size:27px}.deep-home .footer{padding:30px 15px}}
 @media(prefers-reduced-motion:reduce){.deep-track{transition:none}}
+
+/* Five approved cinematic image slides: desktop-first, actual links over artwork */
+.deep-home .deep-image-slide{display:block;min-height:0;height:auto;aspect-ratio:1670/722;background:#04182b}
+.deep-home .deep-banner-image{display:block;width:100%;height:100%;object-fit:cover;object-position:center}
+.deep-home .deep-banner-link{position:absolute;z-index:4;left:10.8%;top:72%;width:21%;height:11%;border-radius:9px}
+.deep-home .deep-banner-link:focus-visible{outline:3px solid #3ed1ff;outline-offset:3px}
+.deep-home .deep-arrow{top:45%;background:#0a3c60bf;border-color:#4dbcf4}
+.deep-home .deep-dots{bottom:14px}
+.deep-home .deep-dot{width:11px;height:11px}
+@media(min-width:1400px){.deep-home .deep-image-slide{max-height:740px}}
+@media(max-width:700px){.deep-home .deep-image-slide{aspect-ratio:1670/722;min-height:0}.deep-home .deep-banner-link{top:72%;height:13%}.deep-home .deep-arrow{top:43%;width:29px;height:29px;font-size:21px}.deep-home .deep-dots{bottom:5px;gap:7px}.deep-home .deep-dot{width:7px;height:7px}}
