@@ -65,7 +65,7 @@ class SinglePhpTests(unittest.TestCase):
         self.assertNotIn('class="pagination"',body)
         self.assertNotIn('class="grid"',body)
         self.assertNotIn('<form',body)
-        self.assertIn('ТОП ароматов',body)
+        self.assertIn('Ароматы в центре внимания',body)
         self.assertNotIn('Самые покупаемые',body)
         links=re.findall(r'data-product-link href="([^"]+)"',body)
         self.assertEqual(len(set(links)),13)
